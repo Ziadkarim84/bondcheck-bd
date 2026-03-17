@@ -13,13 +13,13 @@ Notifications.setNotificationHandler({
 });
 
 async function registerForPushNotifications() {
-  const { status } = await Notifications.requestPermissionsAsync();
-  if (status !== 'granted') return;
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
   try {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') return;
+    const token = (await Notifications.getExpoPushTokenAsync()).data;
     await api.put('/notifications/token', { expoPushToken: token });
   } catch {
-    // Non-critical — user can still use app without push
+    // Non-critical — app works fine without push notifications
   }
 }
 
