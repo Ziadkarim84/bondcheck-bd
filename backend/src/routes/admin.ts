@@ -1,20 +1,22 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth';
-import { scrapeLatestResults, saveDrawResults, DrawResultInput } from '../services/resultFetcher';
+import { fetchLatestResults, fetchDrawResults, saveDrawResults, DrawResultInput } from '../services/resultFetcher';
 import { runMatchingEngine } from '../services/matchingEngine';
 import prisma from '../db';
 
 export const adminRouter = Router();
 adminRouter.use(requireAdmin);
 
-// POST /admin/results/fetch — trigger Puppeteer scraper
-adminRouter.post('/results/fetch', async (_req: Request, res: Response, next: NextFunction) => {
+// POST /admin/results/fetch — fetch latest draw PDF from Bangladesh Bank
+// Optional body: { drawNumber: 122 } to fetch a specific draw
+adminRouter.post('/results/fetch', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const scraped = await scrapeLatestResults();
+    const { drawNumber } = z.object({ drawNumber: z.number().int().positive().optional() }).parse(req.body);
+    const scraped = drawNumber ? await fetchDrawResults(drawNumber) : await fetchLatestResults();
     const saved = await saveDrawResults(scraped);
-    const matches = await runMatchingEngine();
-    res.json({ scraped: scraped.length, saved, newMatches: matches });
+    const matches = await runMatchingEngine(scraped[0]?.drawNumber);
+    res.json({ drawNumber: scraped[0]?.drawNumber, scraped: scraped.length, saved, newMatches: matches });
   } catch (err) {
     next(err);
   }

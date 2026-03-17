@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { scrapeLatestResults, saveDrawResults } from '../services/resultFetcher';
+import { fetchLatestResults, saveDrawResults } from '../services/resultFetcher';
 import { runMatchingEngine } from '../services/matchingEngine';
 
 /**
@@ -12,7 +12,7 @@ export function startScheduler() {
   cron.schedule('0 6,12 * 1,4,7,10 *', async () => {
     console.log('[Scheduler] Checking for new prize bond results...');
     try {
-      const scraped = await scrapeLatestResults();
+      const scraped = await fetchLatestResults();
       if (scraped.length === 0) {
         console.log('[Scheduler] No new results found');
         return;

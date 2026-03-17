@@ -3,7 +3,7 @@ nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
-  "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --workspace=backend --include-workspace-root --ignore-scripts",
+  "npm install --workspace=backend --include-workspace-root --ignore-scripts",
   "node_modules/.bin/prisma generate --schema=backend/prisma/schema.prisma"
 ]
 
