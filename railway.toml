@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm ci && npm run build:backend && node_modules/.bin/prisma generate --schema=backend/prisma/schema.prisma"
+buildCommand = "npm install && npm run build:backend && node_modules/.bin/prisma generate --schema=backend/prisma/schema.prisma"
 
 [deploy]
 startCommand = "node_modules/.bin/prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/server.js"
