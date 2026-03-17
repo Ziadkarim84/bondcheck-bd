@@ -8,6 +8,7 @@ import { REDIS_URL } from '../lib/redis';
 import { uploadBondImage } from '../services/storageService';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import { checkBondAgainstAllResults } from '../services/matchingEngine';
 
 export const bondsRouter = Router();
 bondsRouter.use(authenticate);
@@ -39,6 +40,12 @@ bondsRouter.post('/', async (req: AuthRequest, res: Response, next: NextFunction
     const bond = await prisma.bond.create({
       data: { userId: req.userId!, number, series, addedVia: 'manual' },
     });
+
+    // Check new bond against all existing draw results
+    checkBondAgainstAllResults(bond.id, bond.number, req.userId!).catch((e) =>
+      console.error('[Bonds] Post-add match check failed:', e)
+    );
+
     res.status(201).json(bond);
   } catch (err) {
     next(err);

@@ -49,6 +49,31 @@ adminRouter.post('/results/upload', async (req: Request, res: Response, next: Ne
   }
 });
 
+// POST /admin/results/debug-pdf — parse PDF and return raw text + extracted numbers (no DB save)
+// Use this to inspect what pdf-parse sees so you can tune the parser.
+adminRouter.post('/results/debug-pdf', upload.single('pdf'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No PDF file (field: pdf)' });
+    const drawNumber = parseInt(req.body.drawNumber ?? '0', 10) || 0;
+    const pdfData = await pdfParse(req.file.buffer);
+    const text = pdfData.text;
+    const numbers7 = text.match(/(?<!\d)\d{7}(?!\d)/g) ?? [];
+    // Also show normalized (Bangla → ASCII)
+    const { normalizeBanglaDigits } = await import('../utils/banglaDigits');
+    const normalizedText = normalizeBanglaDigits(text);
+    const normalizedNumbers = normalizedText.match(/(?<!\d)\d{7}(?!\d)/g) ?? [];
+    res.json({
+      pages: pdfData.numpages,
+      rawTextPreview: text.slice(0, 3000),
+      normalizedTextPreview: normalizedText.slice(0, 3000),
+      sevenDigitNumbersRaw: numbers7,
+      sevenDigitNumbersNormalized: normalizedNumbers,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /admin/results/upload-pdf — upload PDF file downloaded from Bangladesh Bank
 // multipart/form-data: field "pdf" (file) + field "drawNumber" (number)
 adminRouter.post('/results/upload-pdf', upload.single('pdf'), async (req: Request, res: Response, next: NextFunction) => {

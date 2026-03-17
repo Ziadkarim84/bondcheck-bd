@@ -77,3 +77,54 @@ export async function runMatchingEngine(drawNumber?: number): Promise<number> {
   console.log(`Matching complete. ${matchCount} new matches found for draw #${targetDraw}`);
   return matchCount;
 }
+
+/**
+ * Check a single newly-added bond against all existing draw results.
+ * Called after POST /bonds so users immediately see wins for past draws.
+ */
+export async function checkBondAgainstAllResults(
+  bondId: string,
+  bondNumber: string,
+  userId: string
+): Promise<number> {
+  const winningResults = await prisma.drawResult.findMany({
+    where: { winningNumber: bondNumber },
+  });
+
+  if (winningResults.length === 0) return 0;
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return 0;
+
+  let matchCount = 0;
+  for (const result of winningResults) {
+    const existing = await prisma.matchResult.findFirst({
+      where: { bondId, drawResultId: result.id },
+    });
+    if (existing) continue;
+
+    await prisma.matchResult.create({
+      data: { userId, bondId, drawResultId: result.id },
+    });
+    matchCount++;
+
+    await sendWinNotification(
+      user.fcmToken,
+      user.expoPushToken,
+      bondNumber,
+      result.prizeAmount,
+      result.drawNumber,
+      result.prizeRank
+    );
+    if (user.email) {
+      await sendWinEmail(user.email, bondNumber, result.prizeAmount, result.drawNumber, result.prizeRank);
+    }
+    await prisma.matchResult.updateMany({
+      where: { bondId, drawResultId: result.id },
+      data: { notifiedAt: new Date() },
+    });
+  }
+
+  console.log(`checkBondAgainstAllResults: ${matchCount} wins found for bond ${bondNumber}`);
+  return matchCount;
+}
