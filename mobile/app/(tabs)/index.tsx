@@ -48,17 +48,27 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {wins.length > 0 && (
-        <View style={styles.winsCard}>
-          <Text style={styles.sectionTitle}>🎉 {t.myWins}</Text>
-          {wins.slice(0, 3).map((m: any) => (
-            <View key={m.id} style={styles.winRow}>
-              <Text style={styles.winBond}>#{m.bond.number}</Text>
-              <Text style={styles.winPrize}>৳{m.drawResult.prizeAmount.toLocaleString()}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      <View style={wins.length > 0 ? styles.winsCard : styles.winsCardEmpty}>
+        <Text style={styles.sectionTitle}>🏆 {t.myWins}</Text>
+        {wins.length === 0 ? (
+          <Text style={styles.winsEmpty}>No wins yet — add your bonds and we'll check automatically.</Text>
+        ) : (
+          <>
+            {wins.slice(0, 5).map((m: any) => (
+              <View key={m.id} style={styles.winRow}>
+                <View>
+                  <Text style={styles.winBond}>#{m.bond?.number ?? '—'}</Text>
+                  <Text style={styles.winDrawLabel}>Draw #{m.drawResult?.drawNumber}</Text>
+                </View>
+                <Text style={styles.winPrize}>৳{(m.drawResult?.prizeAmount ?? 0).toLocaleString()}</Text>
+              </View>
+            ))}
+            {wins.length > 5 && (
+              <Text style={styles.winsMore}>+{wins.length - 5} more wins</Text>
+            )}
+          </>
+        )}
+      </View>
 
       {latest && (
         <View style={styles.drawCard}>
@@ -93,6 +103,10 @@ const styles = StyleSheet.create({
   statNum: { fontSize: 28, fontWeight: '700', color: '#0284c7' },
   statLabel: { fontSize: 12, color: '#64748b', marginTop: 2 },
   winsCard: { margin: 16, marginTop: 0, backgroundColor: '#f0fdf4', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#bbf7d0' },
+  winsCardEmpty: { margin: 16, marginTop: 0, backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' },
+  winsEmpty: { fontSize: 13, color: '#94a3b8', marginTop: 4 },
+  winDrawLabel: { fontSize: 11, color: '#94a3b8', marginTop: 1 },
+  winsMore: { fontSize: 12, color: '#16a34a', marginTop: 8, fontWeight: '600' },
   drawCard: { margin: 16, marginTop: 0, backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0' },
   sectionTitle: { fontWeight: '600', fontSize: 15, marginBottom: 10 },
   winRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },

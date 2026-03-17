@@ -50,19 +50,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   hydrate: async () => {
-    const [token, refresh, userStr] = await Promise.all([
-      SecureStore.getItemAsync('accessToken'),
-      SecureStore.getItemAsync('refreshToken'),
-      SecureStore.getItemAsync('user'),
-    ]);
-    const user = userStr ? (JSON.parse(userStr) as User) : null;
-    set({
-      accessToken: token,
-      refreshToken: refresh,
-      user,
-      language: user?.language ?? 'bn',
-      isReady: true,
-    });
+    try {
+      const [token, refresh, userStr] = await Promise.all([
+        SecureStore.getItemAsync('accessToken'),
+        SecureStore.getItemAsync('refreshToken'),
+        SecureStore.getItemAsync('user'),
+      ]);
+      const user = userStr ? (JSON.parse(userStr) as User) : null;
+      set({ accessToken: token, refreshToken: refresh, user, language: user?.language ?? 'bn' });
+    } catch (e) {
+      console.warn('[AuthStore] hydrate failed:', e);
+    } finally {
+      set({ isReady: true });
+    }
   },
 
   setLanguage: (language) => set({ language }),
