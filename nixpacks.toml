@@ -1,15 +1,17 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "chromium", "tesseract"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
-  "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --ignore-scripts",
-  "npm rebuild sharp --update-binary",
+  "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --workspace=backend --include-workspace-root --ignore-scripts",
   "node_modules/.bin/prisma generate --schema=backend/prisma/schema.prisma"
 ]
 
 [phases.build]
-cmds = ["npm run build:backend"]
+cmds = [
+  "npm run build:backend",
+  "npm prune --omit=dev"
+]
 
 [start]
 cmd = "node backend/dist/server.js"
