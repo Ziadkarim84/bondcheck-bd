@@ -20,13 +20,19 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0284c7"
       },
-      "package": "com.bondcheckbd.app"
+      "package": "com.bondcheckbd.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
       [
         "expo-camera",
-        { "cameraPermission": "Allow BondCheck to access your camera to scan prize bonds." }
+        {
+          "cameraPermission": "Allow BondCheck to access your camera to scan prize bonds."
+        }
       ],
       [
         "expo-notifications",
@@ -40,7 +46,11 @@
     "scheme": "bondcheck",
     "extra": {
       "apiUrl": "https://bondcheck-bd-production.up.railway.app/v1",
-      "eas": { "projectId": "YOUR_EAS_PROJECT_ID" }
-    }
+      "eas": {
+        "projectId": "8b9b9c47-7dde-4232-bc96-a8bd29678cc3"
+      },
+      "router": {}
+    },
+    "owner": "ziadkarim84"
   }
 }
