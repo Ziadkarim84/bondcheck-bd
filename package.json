@@ -4,8 +4,7 @@
   "private": true,
   "workspaces": [
     "backend",
-    "web",
-    "mobile"
+    "web"
   ],
   "scripts": {
     "dev:backend": "npm run dev --workspace=backend",
