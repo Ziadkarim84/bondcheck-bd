@@ -8,7 +8,7 @@ import { strings } from '../../constants/strings';
 export default function HomeScreen() {
   const router = useRouter();
   const { user, language } = useAuthStore();
-  const t = strings[language];
+  const t = strings[language] ?? strings.en;
   const [latest, setLatest] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [wins, setWins] = useState<any[]>([]);

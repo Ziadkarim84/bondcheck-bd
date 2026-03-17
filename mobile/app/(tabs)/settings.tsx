@@ -5,7 +5,7 @@ import { api } from '../../services/api';
 
 export default function SettingsScreen() {
   const { user, language, setLanguage, logout } = useAuthStore();
-  const t = strings[language];
+  const t = strings[language] ?? strings.en;
 
   async function handleLogout() {
     Alert.alert(t.logout, 'Are you sure?', [

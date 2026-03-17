@@ -8,7 +8,7 @@ interface Bond { id: string; number: string; series?: string; addedVia: string; 
 
 export default function BondsScreen() {
   const lang = useAuthStore((s) => s.language);
-  const t = strings[lang];
+  const t = strings[lang] ?? strings.en;
   const [bonds, setBonds] = useState<Bond[]>([]);
   const [number, setNumber] = useState('');
   const [series, setSeries] = useState('');

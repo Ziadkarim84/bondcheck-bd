@@ -12,7 +12,7 @@ type Status = 'idle' | 'uploading' | 'processing' | 'confirm' | 'done';
 export default function ScanScreen() {
   const router = useRouter();
   const lang = useAuthStore((s) => s.language);
-  const t = strings[lang];
+  const t = strings[lang] ?? strings.en;
   const [permission, requestPermission] = useCameraPermissions();
   const [showCamera, setShowCamera] = useState(false);
   const [status, setStatus] = useState<Status>('idle');
