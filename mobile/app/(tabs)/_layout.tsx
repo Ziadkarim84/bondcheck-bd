@@ -3,8 +3,8 @@ import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
 
 export default function TabLayout() {
-  const lang = useAuthStore((s) => s.language);
-  const t = strings[lang];
+  const lang = useAuthStore((s) => s.language) ?? 'en';
+  const t = strings[lang] ?? strings.en;
 
   return (
     <Tabs
