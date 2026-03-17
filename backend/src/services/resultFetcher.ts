@@ -198,6 +198,18 @@ function splitIntoSections(text: string): PdfSection[] {
 }
 
 /**
+ * Parse a PDF buffer directly (for admin upload endpoint).
+ * drawNumber must be provided since we can't detect it from the URL.
+ */
+export async function parsePdfBuffer(buffer: Buffer, drawNumber: number): Promise<DrawResultInput[]> {
+  const parsed = await pdfParse(buffer);
+  console.log(`[ResultFetcher] Uploaded PDF text length: ${parsed.text.length} chars`);
+  const results = parsePdfText(parsed.text, drawNumber);
+  console.log(`[ResultFetcher] Parsed ${results.length} winning numbers from draw #${drawNumber}`);
+  return results;
+}
+
+/**
  * Fetch and parse the prize bond result PDF for a given draw number.
  */
 export async function fetchDrawResults(drawNumber: number): Promise<DrawResultInput[]> {
