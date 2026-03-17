@@ -95,6 +95,36 @@ adminRouter.post('/results/upload-pdf', upload.single('pdf'), async (req: Reques
   }
 });
 
+// POST /admin/results/rematch-all — re-run matching for ALL draws against ALL bonds
+// Use this after fixing parser and re-uploading PDFs
+adminRouter.post('/results/rematch-all', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const draws = await prisma.drawResult.groupBy({ by: ['drawNumber'] });
+    let total = 0;
+    for (const { drawNumber } of draws) {
+      total += await runMatchingEngine(drawNumber);
+    }
+    res.json({ drawsChecked: draws.length, newMatches: total });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /admin/results/clear — delete all draw results for a draw number (to re-upload clean data)
+adminRouter.post('/results/clear', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { drawNumber } = z.object({ drawNumber: z.number().int().positive() }).parse(req.body);
+    // Delete match results for this draw first (foreign key)
+    const drawResults = await prisma.drawResult.findMany({ where: { drawNumber }, select: { id: true } });
+    const ids = drawResults.map((r) => r.id);
+    await prisma.matchResult.deleteMany({ where: { drawResultId: { in: ids } } });
+    const { count } = await prisma.drawResult.deleteMany({ where: { drawNumber } });
+    res.json({ deleted: count });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /admin/results/match — re-run matching for a draw
 adminRouter.post('/results/match', async (req: Request, res: Response, next: NextFunction) => {
   try {

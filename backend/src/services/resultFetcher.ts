@@ -81,120 +81,99 @@ async function downloadPdf(drawNumber: number): Promise<Buffer> {
 }
 
 /**
+ * Compute the expected draw date from a draw number.
+ * Anchor: 114th draw = January 31, 2024.
+ * Quarterly schedule: Jan 31, Apr 30, Jul 31, Oct 31.
+ */
+function getDrawDate(drawNumber: number): string {
+  const ANCHOR_DRAW = 114;
+  const ANCHOR_YEAR = 2024;
+  const drawMonths = [1, 4, 7, 10];
+  const drawDays  = [31, 30, 31, 31];
+
+  const quartersFromAnchor = drawNumber - ANCHOR_DRAW;
+  const year    = ANCHOR_YEAR + Math.floor(quartersFromAnchor / 4);
+  const quarter = ((quartersFromAnchor % 4) + 4) % 4; // 0=Jan,1=Apr,2=Jul,3=Oct
+
+  const month = drawMonths[quarter];
+  const day   = drawDays[quarter];
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/**
  * Parse prize bond results from PDF text.
- * Handles both Bangla and English text in Bangladesh Bank PDFs.
+ *
+ * Bangladesh Bank PDFs use Bijoy/ANSI encoding (not Unicode Bangla).
+ * Prize rank labels in that encoding:
+ *   1g cyi  = ১ম পুরস্কার  (1st prize)
+ *   2q cyi  = ২য় পুরস্কার  (2nd prize)
+ *   3q cyi  = ৩য় পুরস্কার  (3rd prize)
+ *   4_©     = ৪র্থ পুরস্কার (4th prize)  — note the leading "4_"
+ *   5g cyi  = ৫ম পুরস্কার  (5th prize)
+ *
+ * Ranks 1 & 2 have their winning number on the SAME line as the label.
+ * Ranks 3-5 have their numbers on the FOLLOWING lines.
+ * A summary table (starts with "84 wU" / "168 wU") follows the rank-5 numbers.
+ *
+ * The string "0000001" in the preamble ("from 0000001 to 10,00,000") is a
+ * range description — it is excluded because it appears before the first label.
  */
 function parsePdfText(text: string, drawNumber: number): DrawResultInput[] {
-  // Normalize Bangla digits to ASCII
-  const normalized = normalizeBanglaDigits(text);
+  const drawDate = getDrawDate(drawNumber);
   const results: DrawResultInput[] = [];
 
-  // Extract draw date — look for patterns like "31 January 2025" or "২০২৫"
-  const datePatterns = [
-    /(\d{1,2})\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i,
-    /(\d{4})-(\d{2})-(\d{2})/,
-    /(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/,
-  ];
-  let drawDate = new Date().toISOString().split('T')[0];
-  for (const pat of datePatterns) {
-    const m = normalized.match(pat);
-    if (m) {
-      const parsed = new Date(m[0]);
-      if (!isNaN(parsed.getTime())) {
-        drawDate = parsed.toISOString().split('T')[0];
-        break;
-      }
-    }
-  }
-
-  // Extract all 7-digit numbers from the PDF text
-  const allNumbers = normalized.match(/(?<!\d)\d{7}(?!\d)/g) ?? [];
-  if (allNumbers.length === 0) {
-    console.warn('[ResultFetcher] No 7-digit numbers found in PDF');
+  // ── locate prize section ─────────────────────────────────────────────
+  const prizeStart = text.search(/1g\s+cyi/);
+  if (prizeStart === -1) {
+    console.warn('[ResultFetcher] Prize section not found in PDF text');
     return results;
   }
+  const prize = text.slice(prizeStart);
 
-  // Strategy: split text into sections by prize tier keywords, then extract numbers from each section
-  // Bangladesh Bank PDFs label prizes as "1st Prize", "2nd Prize" or in Bangla "১ম পুরস্কার"
-  const sections = splitIntoSections(normalized);
+  // ── rank 1 & 2: number is on the same line ───────────────────────────
+  const r1 = prize.match(/1g\s+cyi[^\n\r]*?(\d{7})/);
+  if (r1) results.push({ drawNumber, drawDate, prizeRank: 1, prizeAmount: 600000, winningNumber: r1[1] });
 
-  if (sections.length > 0) {
-    for (const section of sections) {
-      const tier = PRIZE_TIERS[section.rank - 1];
-      if (!tier) continue;
-      const nums = section.text.match(/(?<!\d)\d{7}(?!\d)/g) ?? [];
-      for (const num of nums) {
-        results.push({
-          drawNumber,
-          drawDate,
-          series: section.series ?? undefined,
-          prizeRank: tier.rank,
-          prizeAmount: tier.amount,
-          winningNumber: num,
-        });
-      }
-    }
-  } else {
-    // Fallback: assign numbers to tiers by position (1 for rank1, 1 for rank2, 2 for rank3, 2 for rank4, rest for rank5)
-    // Expected distribution per Bangladesh Bank: 1, 1, 2, 4, 38 per series
-    const countByRank = [1, 1, 2, 4, 38];
-    let idx = 0;
-    for (let rankIdx = 0; rankIdx < PRIZE_TIERS.length; rankIdx++) {
-      const tier = PRIZE_TIERS[rankIdx];
-      for (let i = 0; i < countByRank[rankIdx] && idx < allNumbers.length; i++, idx++) {
-        results.push({
-          drawNumber,
-          drawDate,
-          prizeRank: tier.rank,
-          prizeAmount: tier.amount,
-          winningNumber: allNumbers[idx],
-        });
-      }
-    }
+  const r2 = prize.match(/2q\s+cyi[^\n\r]*?(\d{7})/);
+  if (r2) results.push({ drawNumber, drawDate, prizeRank: 2, prizeAmount: 325000, winningNumber: r2[1] });
+
+  // ── locate section boundaries ────────────────────────────────────────
+  const idx3 = prize.search(/3q\s+cyi/);
+  const idx4 = prize.search(/4_/);          // "4_© cyi" — Bijoy encoding for ৪র্থ
+  const idx5 = prize.search(/5g\s+cyi/);
+  // Summary table starts with "84 wU" (84 prizes of 6,00,000 each)
+  const idxSummary = prize.search(/84\s+wU|168\s+wU|3360\s+wU/);
+
+  // ── rank 3 ───────────────────────────────────────────────────────────
+  if (idx3 !== -1) {
+    const end = idx4 !== -1 ? idx4 : (idx5 !== -1 ? idx5 : prize.length);
+    sevenDigits(prize.slice(idx3, end)).forEach((n) =>
+      results.push({ drawNumber, drawDate, prizeRank: 3, prizeAmount: 100000, winningNumber: n })
+    );
   }
 
+  // ── rank 4 ───────────────────────────────────────────────────────────
+  if (idx4 !== -1) {
+    const end = idx5 !== -1 ? idx5 : prize.length;
+    sevenDigits(prize.slice(idx4, end)).forEach((n) =>
+      results.push({ drawNumber, drawDate, prizeRank: 4, prizeAmount: 50000, winningNumber: n })
+    );
+  }
+
+  // ── rank 5 ───────────────────────────────────────────────────────────
+  if (idx5 !== -1) {
+    const end = idxSummary !== -1 ? idxSummary : prize.length;
+    sevenDigits(prize.slice(idx5, end)).forEach((n) =>
+      results.push({ drawNumber, drawDate, prizeRank: 5, prizeAmount: 10000, winningNumber: n })
+    );
+  }
+
+  console.log(`[ResultFetcher] Parsed: R1=${results.filter(r=>r.prizeRank===1).length} R2=${results.filter(r=>r.prizeRank===2).length} R3=${results.filter(r=>r.prizeRank===3).length} R4=${results.filter(r=>r.prizeRank===4).length} R5=${results.filter(r=>r.prizeRank===5).length}`);
   return results;
 }
 
-interface PdfSection {
-  rank: number;
-  series?: string;
-  text: string;
-}
-
-function splitIntoSections(text: string): PdfSection[] {
-  const sections: PdfSection[] = [];
-
-  // Patterns for prize rank headers in English or transliterated Bangla
-  const rankPatterns = [
-    { rank: 1, pattern: /1st\s+prize|prize\s+1st|1[_\s]*m\s+pur|puraskar\s+1/i },
-    { rank: 2, pattern: /2nd\s+prize|prize\s+2nd|2[_\s]*y\s+pur/i },
-    { rank: 3, pattern: /3rd\s+prize|prize\s+3rd|3[_\s]*y\s+pur/i },
-    { rank: 4, pattern: /4th\s+prize|prize\s+4th|4[_\s]*th\s+pur/i },
-    { rank: 5, pattern: /5th\s+prize|prize\s+5th|5[_\s]*th\s+pur/i },
-  ];
-
-  // Find positions of each rank section
-  const found: Array<{ rank: number; pos: number }> = [];
-  for (const rp of rankPatterns) {
-    const m = text.search(rp.pattern);
-    if (m !== -1) found.push({ rank: rp.rank, pos: m });
-  }
-
-  if (found.length === 0) return [];
-
-  found.sort((a, b) => a.pos - b.pos);
-
-  for (let i = 0; i < found.length; i++) {
-    const start = found[i].pos;
-    const end = found[i + 1]?.pos ?? text.length;
-    sections.push({
-      rank: found[i].rank,
-      text: text.slice(start, end),
-    });
-  }
-
-  return sections;
+function sevenDigits(text: string): string[] {
+  return text.match(/(?<!\d)\d{7}(?!\d)/g) ?? [];
 }
 
 /**
