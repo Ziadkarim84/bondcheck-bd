@@ -1,0 +1,17 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+buildCommand = "npm ci && npm run build && npx prisma generate"
+
+[deploy]
+startCommand = "npx prisma migrate deploy && node dist/server.js"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "api"
+startCommand = "npx prisma migrate deploy && node dist/server.js"
+
+[[services]]
+name = "worker"
+startCommand = "node dist/workers/ocrWorker.js"

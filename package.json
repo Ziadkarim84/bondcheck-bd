@@ -1,0 +1,17 @@
+{
+  "name": "bondcheck-bd",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "web",
+    "mobile"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:web": "npm run dev --workspace=web",
+    "worker": "node_modules/.bin/ts-node backend/src/workers/ocrWorker.ts",
+    "build:backend": "npm run build --workspace=backend",
+    "build:web": "npm run build --workspace=web"
+  }
+}

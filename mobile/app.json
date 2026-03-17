@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "BondCheck BD",
+    "slug": "bondcheck-bd",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0284c7"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bondcheckbd.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0284c7"
+      },
+      "package": "com.bondcheckbd.app"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        { "cameraPermission": "Allow BondCheck to access your camera to scan prize bonds." }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0284c7",
+          "androidMode": "default"
+        }
+      ]
+    ],
+    "scheme": "bondcheck",
+    "extra": {
+      "apiUrl": "https://bondcheck-bd.up.railway.app/v1",
+      "eas": { "projectId": "YOUR_EAS_PROJECT_ID" }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+.expo/
+*.log
+.DS_Store
+coverage/
+prisma/dev.db
+*.traineddata

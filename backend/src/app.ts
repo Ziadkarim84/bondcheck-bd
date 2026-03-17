@@ -1,0 +1,37 @@
+import express from 'express';
+import cors from 'cors';
+import { authRouter } from './routes/auth';
+import { bondsRouter } from './routes/bonds';
+import { resultsRouter } from './routes/results';
+import { matchesRouter } from './routes/matches';
+import { notificationsRouter } from './routes/notifications';
+import { adminRouter } from './routes/admin';
+import { errorHandler } from './middleware/errorHandler';
+
+export function createApp() {
+  const app = express();
+
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+      credentials: true,
+    })
+  );
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  app.use('/v1/auth', authRouter);
+  app.use('/v1/bonds', bondsRouter);
+  app.use('/v1/results', resultsRouter);
+  app.use('/v1/matches', matchesRouter);
+  app.use('/v1/notifications', notificationsRouter);
+  app.use('/v1/admin', adminRouter);
+
+  app.use(errorHandler);
+
+  return app;
+}

@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String        @db.VarChar(100)
+  email        String?       @unique @db.VarChar(255)
+  phone        String?       @unique @db.VarChar(20)
+  passwordHash String?       @map("password_hash") @db.VarChar(255)
+  tier         Tier          @default(free)
+  fcmToken     String?       @map("fcm_token") @db.VarChar(500)
+  expoPushToken String?      @map("expo_push_token") @db.VarChar(500)
+  language     Language      @default(bn)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  bonds         Bond[]
+  matchResults  MatchResult[]
+  ocrJobs       OcrJob[]
+  subscription  Subscription?
+
+  @@map("users")
+}
+
+model Bond {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  number    String   @db.VarChar(10)
+  series    String?  @db.VarChar(10)
+  imageUrl  String?  @map("image_url") @db.VarChar(500)
+  addedVia  AddedVia @default(manual) @map("added_via")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchResults MatchResult[]
+
+  @@unique([userId, number], name: "unique_bond_per_user")
+  @@map("bonds")
+}
+
+model DrawResult {
+  id            String   @id @default(uuid())
+  drawNumber    Int      @map("draw_number")
+  drawDate      DateTime @map("draw_date") @db.Date
+  series        String?  @db.VarChar(10)
+  prizeRank     Int      @map("prize_rank") @db.TinyInt
+  prizeAmount   Int      @map("prize_amount")
+  winningNumber String   @map("winning_number") @db.VarChar(10)
+  fetchedAt     DateTime @default(now()) @map("fetched_at")
+
+  matchResults MatchResult[]
+
+  @@unique([drawNumber, winningNumber], name: "unique_draw_number")
+  @@map("draw_results")
+}
+
+model MatchResult {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  bondId       String    @map("bond_id")
+  drawResultId String    @map("draw_result_id")
+  notifiedAt   DateTime? @map("notified_at")
+
+  user       User       @relation(fields: [userId], references: [id])
+  bond       Bond       @relation(fields: [bondId], references: [id])
+  drawResult DrawResult @relation(fields: [drawResultId], references: [id])
+
+  @@map("match_results")
+}
+
+model Subscription {
+  id            String        @id @default(uuid())
+  userId        String        @unique @map("user_id")
+  plan          SubPlan
+  store         SubStore?
+  purchaseToken String?       @map("purchase_token") @db.VarChar(500)
+  validUntil    DateTime      @map("valid_until")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model OcrJob {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  imageUrl   String    @map("image_url") @db.VarChar(500)
+  status     OcrStatus @default(pending)
+  resultJson Json?     @map("result_json")
+  error      String?   @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("ocr_jobs")
+}
+
+enum Tier {
+  free
+  premium
+}
+
+enum Language {
+  bn
+  en
+}
+
+enum AddedVia {
+  ocr
+  manual
+}
+
+enum OcrStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+enum SubPlan {
+  monthly
+  yearly
+}
+
+enum SubStore {
+  google_play
+  app_store
+  web
+}
