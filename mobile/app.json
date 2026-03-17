@@ -39,7 +39,7 @@
     ],
     "scheme": "bondcheck",
     "extra": {
-      "apiUrl": "https://bondcheck-bd.up.railway.app/v1",
+      "apiUrl": "https://bondcheck-bd-production.up.railway.app/v1",
       "eas": { "projectId": "YOUR_EAS_PROJECT_ID" }
     }
   }
