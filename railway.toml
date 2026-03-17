@@ -1,8 +1,7 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npm run build:backend && node_modules/.bin/prisma generate --schema=backend/prisma/schema.prisma"
 
 [deploy]
-startCommand = "node_modules/.bin/prisma migrate deploy --schema=backend/prisma/schema.prisma && node backend/dist/server.js"
+startCommand = "node backend/dist/server.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
