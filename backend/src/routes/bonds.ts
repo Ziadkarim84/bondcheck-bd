@@ -52,6 +52,39 @@ bondsRouter.post('/', async (req: AuthRequest, res: Response, next: NextFunction
   }
 });
 
+// POST /bonds/range — add a consecutive range e.g. { from: "0000010", to: "0000100", series: "KK" }
+bondsRouter.post('/range', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { from, to, series } = z.object({
+      from:   z.string().regex(/^\d{7}$/, 'from must be a 7-digit number'),
+      to:     z.string().regex(/^\d{7}$/, 'to must be a 7-digit number'),
+      series: z.string().optional(),
+    }).parse(req.body);
+
+    const start = parseInt(from, 10);
+    const end   = parseInt(to,   10);
+    if (start > end) throw new AppError(400, '"from" must be ≤ "to"');
+    const count = end - start + 1;
+    if (count > 1000) throw new AppError(400, 'Range too large — max 1000 bonds at once');
+
+    const created: string[] = [];
+    for (let n = start; n <= end; n++) {
+      const number = String(n).padStart(7, '0');
+      const bond = await prisma.bond.upsert({
+        where: { unique_bond_per_user: { userId: req.userId!, number } },
+        create: { userId: req.userId!, number, series, addedVia: 'manual' },
+        update: {},
+      });
+      created.push(bond.id);
+      checkBondAgainstAllResults(bond.id, number, req.userId!).catch(() => {});
+    }
+
+    res.status(201).json({ added: created.length, from, to });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /bonds/:id
 bondsRouter.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

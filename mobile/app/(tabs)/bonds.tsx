@@ -10,8 +10,12 @@ export default function BondsScreen() {
   const lang = useAuthStore((s) => s.language);
   const t = strings[lang] ?? strings.en;
   const [bonds, setBonds] = useState<Bond[]>([]);
+  const [rangeMode, setRangeMode] = useState(false);
   const [number, setNumber] = useState('');
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
   const [series, setSeries] = useState('');
+  const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
@@ -24,17 +28,39 @@ export default function BondsScreen() {
   useEffect(() => { load(); }, []);
 
   async function handleAdd() {
-    if (!/^\d{7}$/.test(number)) {
-      Alert.alert('Error', 'Enter a valid 7-digit bond number');
-      return;
-    }
-    try {
-      await api.post('/bonds', { number, series: series || undefined });
-      setNumber('');
-      setSeries('');
-      load();
-    } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.error ?? 'Failed to add bond');
+    if (rangeMode) {
+      if (!/^\d{7}$/.test(rangeFrom) || !/^\d{7}$/.test(rangeTo)) {
+        Alert.alert('Error', 'Enter valid 7-digit numbers for both From and To');
+        return;
+      }
+      if (parseInt(rangeFrom, 10) > parseInt(rangeTo, 10)) {
+        Alert.alert('Error', '"From" must be ≤ "To"');
+        return;
+      }
+      const count = parseInt(rangeTo, 10) - parseInt(rangeFrom, 10) + 1;
+      if (count > 1000) { Alert.alert('Error', 'Range too large — max 1000 bonds at once'); return; }
+      setAdding(true);
+      try {
+        const { data } = await api.post('/bonds/range', { from: rangeFrom, to: rangeTo, series: series || undefined });
+        Alert.alert('Done', `Added ${data.added} bond${data.added !== 1 ? 's' : ''}`);
+        setRangeFrom(''); setRangeTo(''); setSeries('');
+        load();
+      } catch (err: any) {
+        Alert.alert('Error', err.response?.data?.error ?? 'Failed to add range');
+      } finally { setAdding(false); }
+    } else {
+      if (!/^\d{7}$/.test(number)) {
+        Alert.alert('Error', 'Enter a valid 7-digit bond number');
+        return;
+      }
+      setAdding(true);
+      try {
+        await api.post('/bonds', { number, series: series || undefined });
+        setNumber(''); setSeries('');
+        load();
+      } catch (err: any) {
+        Alert.alert('Error', err.response?.data?.error ?? 'Failed to add bond');
+      } finally { setAdding(false); }
     }
   }
 
@@ -53,27 +79,74 @@ export default function BondsScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.addSection}>
-        <Text style={styles.label}>{t.addBond}</Text>
-        <View style={styles.addRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="7-digit number"
-            value={number}
-            onChangeText={setNumber}
-            keyboardType="number-pad"
-            maxLength={7}
-          />
-          <TextInput
-            style={[styles.input, { width: 80 }]}
-            placeholder="Series"
-            value={series}
-            onChangeText={setSeries}
-            maxLength={5}
-          />
-          <TouchableOpacity style={styles.addBtn} onPress={handleAdd}>
-            <Text style={styles.addBtnText}>+</Text>
+        {/* Mode toggle */}
+        <View style={styles.modeRow}>
+          <TouchableOpacity
+            style={[styles.modeBtn, !rangeMode && styles.modeBtnActive]}
+            onPress={() => setRangeMode(false)}
+          >
+            <Text style={[styles.modeBtnText, !rangeMode && styles.modeBtnTextActive]}>Single</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeBtn, rangeMode && styles.modeBtnActive]}
+            onPress={() => setRangeMode(true)}
+          >
+            <Text style={[styles.modeBtnText, rangeMode && styles.modeBtnTextActive]}>Range</Text>
           </TouchableOpacity>
         </View>
+
+        {rangeMode ? (
+          <View style={styles.addRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="From (0000010)"
+              value={rangeFrom}
+              onChangeText={setRangeFrom}
+              keyboardType="number-pad"
+              maxLength={7}
+            />
+            <Text style={styles.rangeDash}>–</Text>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="To (0000100)"
+              value={rangeTo}
+              onChangeText={setRangeTo}
+              keyboardType="number-pad"
+              maxLength={7}
+            />
+            <TextInput
+              style={[styles.input, { width: 72 }]}
+              placeholder="Series"
+              value={series}
+              onChangeText={setSeries}
+              maxLength={5}
+            />
+            <TouchableOpacity style={[styles.addBtn, adding && { opacity: 0.5 }]} onPress={handleAdd} disabled={adding}>
+              <Text style={styles.addBtnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.addRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="7-digit number"
+              value={number}
+              onChangeText={setNumber}
+              keyboardType="number-pad"
+              maxLength={7}
+            />
+            <TextInput
+              style={[styles.input, { width: 80 }]}
+              placeholder="Series"
+              value={series}
+              onChangeText={setSeries}
+              maxLength={5}
+            />
+            <TouchableOpacity style={[styles.addBtn, adding && { opacity: 0.5 }]} onPress={handleAdd} disabled={adding}>
+              <Text style={styles.addBtnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <Text style={styles.listHeader}>Your Bonds ({bonds.length})</Text>
@@ -107,7 +180,13 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#f8fafc' },
   addSection: { backgroundColor: '#fff', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   label: { fontSize: 13, fontWeight: '600', color: '#64748b', marginBottom: 8 },
-  addRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  modeRow: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 3, marginBottom: 10 },
+  modeBtn: { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 6 },
+  modeBtnActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, elevation: 2 },
+  modeBtnText: { fontSize: 13, fontWeight: '600', color: '#94a3b8' },
+  modeBtnTextActive: { color: '#0284c7' },
+  addRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  rangeDash: { fontSize: 16, color: '#94a3b8', fontWeight: '700' },
   input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, fontSize: 14, backgroundColor: '#f8fafc' },
   addBtn: { backgroundColor: '#0284c7', borderRadius: 8, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   addBtnText: { color: '#fff', fontSize: 22, fontWeight: '600' },
