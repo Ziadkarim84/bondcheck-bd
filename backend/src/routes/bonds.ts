@@ -13,6 +13,7 @@ import { checkBondAgainstAllResults } from '../services/matchingEngine';
 export const bondsRouter = Router();
 bondsRouter.use(authenticate);
 
+const FREE_BOND_LIMIT = 50;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const ocrQueue = new Queue('ocr-queue', { connection: { url: REDIS_URL } });
 
@@ -29,6 +30,29 @@ bondsRouter.get('/', async (req: AuthRequest, res: Response, next: NextFunction)
   }
 });
 
+// GET /bonds/export — CSV download (Premium only)
+bondsRouter.get('/export', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (user?.tier !== 'premium') throw new AppError(403, 'Export is a Premium feature. Upgrade to download your bonds.');
+
+    const bonds = await prisma.bond.findMany({
+      where: { userId: req.userId },
+      orderBy: { number: 'asc' },
+    });
+
+    const rows = ['Number,Series,AddedVia,CreatedAt']
+      .concat(bonds.map((b) => `${b.number},${b.series ?? ''},${b.addedVia},${b.createdAt.toISOString()}`))
+      .join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=my-bonds.csv');
+    res.send(rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /bonds — manual add
 bondsRouter.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -37,11 +61,18 @@ bondsRouter.post('/', async (req: AuthRequest, res: Response, next: NextFunction
       series: z.string().optional(),
     }).parse(req.body);
 
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (user?.tier === 'free') {
+      const count = await prisma.bond.count({ where: { userId: req.userId } });
+      if (count >= FREE_BOND_LIMIT) {
+        throw new AppError(403, `Free limit of ${FREE_BOND_LIMIT} bonds reached. Upgrade to Premium for unlimited bonds.`);
+      }
+    }
+
     const bond = await prisma.bond.create({
       data: { userId: req.userId!, number, series, addedVia: 'manual' },
     });
 
-    // Check new bond against all existing draw results
     checkBondAgainstAllResults(bond.id, bond.number, req.userId!).catch((e) =>
       console.error('[Bonds] Post-add match check failed:', e)
     );
@@ -52,7 +83,7 @@ bondsRouter.post('/', async (req: AuthRequest, res: Response, next: NextFunction
   }
 });
 
-// POST /bonds/range — add a consecutive range e.g. { from: "0000010", to: "0000100", series: "KK" }
+// POST /bonds/range — add a consecutive range
 bondsRouter.post('/range', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { from, to, series } = z.object({
@@ -64,8 +95,16 @@ bondsRouter.post('/range', async (req: AuthRequest, res: Response, next: NextFun
     const start = parseInt(from, 10);
     const end   = parseInt(to,   10);
     if (start > end) throw new AppError(400, '"from" must be ≤ "to"');
-    const count = end - start + 1;
-    if (count > 1000) throw new AppError(400, 'Range too large — max 1000 bonds at once');
+    const rangeCount = end - start + 1;
+    if (rangeCount > 1000) throw new AppError(400, 'Range too large — max 1000 bonds at once');
+
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (user?.tier === 'free') {
+      const existing = await prisma.bond.count({ where: { userId: req.userId } });
+      if (existing + rangeCount > FREE_BOND_LIMIT) {
+        throw new AppError(403, `Adding ${rangeCount} bonds would exceed your free limit of ${FREE_BOND_LIMIT}. Upgrade to Premium for unlimited bonds.`);
+      }
+    }
 
     const created: string[] = [];
     for (let n = start; n <= end; n++) {
@@ -103,16 +142,12 @@ bondsRouter.post('/ocr', upload.single('image'), async (req: AuthRequest, res: R
     if (!req.file) throw new AppError(400, 'Image file is required');
 
     const jobId = uuidv4();
-
-    // Upload to Cloudinary
     const imageUrl = await uploadBondImage(req.file.buffer, req.userId!, jobId);
 
-    // Create OCR job record
     await prisma.ocrJob.create({
       data: { id: jobId, userId: req.userId!, imageUrl, status: 'pending' },
     });
 
-    // Enqueue BullMQ job
     await ocrQueue.add('process-ocr', { jobId, imageUrl, userId: req.userId }, { jobId });
 
     res.status(202).json({ jobId, status: 'pending' });
@@ -162,9 +197,23 @@ bondsRouter.post('/ocr/:jobId/confirm', async (req: AuthRequest, res: Response, 
 // GET /bonds/stats
 bondsRouter.get('/stats', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const count = await prisma.bond.count({ where: { userId: req.userId } });
-    const wins = await prisma.matchResult.count({ where: { userId: req.userId } });
-    res.json({ totalBonds: count, totalWins: wins });
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    const [count, matches] = await Promise.all([
+      prisma.bond.count({ where: { userId: req.userId } }),
+      prisma.matchResult.findMany({
+        where: { userId: req.userId },
+        include: { drawResult: true },
+      }),
+    ]);
+    const totalPrizeEarned = matches.reduce((sum, m) => sum + m.drawResult.prizeAmount, 0);
+    res.json({
+      totalBonds: count,
+      totalWins: matches.length,
+      totalPrizeEarned,
+      afterTaxEarned: Math.floor(totalPrizeEarned * 0.8),
+      tier: user?.tier ?? 'free',
+      bondLimit: user?.tier === 'premium' ? null : FREE_BOND_LIMIT,
+    });
   } catch (err) {
     next(err);
   }

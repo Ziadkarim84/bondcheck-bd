@@ -69,6 +69,18 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* Premium */}
+      {user?.tier !== 'premium' && (
+        <TouchableOpacity style={styles.premiumCard} onPress={() => router.push('/premium')}>
+          <Text style={styles.premiumIcon}>⭐</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.premiumTitle}>Upgrade to Premium</Text>
+            <Text style={styles.premiumSub}>Unlimited bonds, export CSV & more</Text>
+          </View>
+          <Text style={styles.rowChevron}>›</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Actions */}
       <View style={styles.card}>
         <TouchableOpacity style={styles.row} onPress={handleShare}>
@@ -142,6 +154,10 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 13, color: '#64748b' },
   infoValue: { fontSize: 13, color: '#334155', fontWeight: '600' },
   infoDesc: { fontSize: 12, color: '#94a3b8', marginTop: 8, lineHeight: 18 },
+  premiumCard: { backgroundColor: '#fef9c3', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#fde68a', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  premiumIcon: { fontSize: 24 },
+  premiumTitle: { fontSize: 15, fontWeight: '700', color: '#92400e' },
+  premiumSub: { fontSize: 12, color: '#b45309', marginTop: 2 },
   logoutBtn: { backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca', marginTop: 4 },
   logoutText: { color: '#dc2626', fontWeight: '600', fontSize: 15 },
 });

@@ -18,6 +18,7 @@ export default function BondsScreen() {
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'number' | 'series'>('date');
 
   async function load() {
     try {
@@ -82,12 +83,17 @@ export default function BondsScreen() {
 
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
-  const filtered = search.trim()
+  const filtered = (search.trim()
     ? bonds.filter((b) =>
         b.number.includes(search.trim()) ||
         (b.series ?? '').toLowerCase().includes(search.trim().toLowerCase())
       )
-    : bonds;
+    : [...bonds]
+  ).sort((a, b) => {
+    if (sortBy === 'number') return a.number.localeCompare(b.number);
+    if (sortBy === 'series') return (a.series ?? '').localeCompare(b.series ?? '');
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   const totalValue = bonds.length * 100;
 
@@ -177,10 +183,17 @@ export default function BondsScreen() {
       <View style={styles.summaryRow}>
         <Text style={styles.listHeader}>
           {search ? `${filtered.length} / ${bonds.length}` : bonds.length} bonds
+          {totalValue > 0 ? ` · ৳${totalValue.toLocaleString()}` : ''}
         </Text>
-        {totalValue > 0 && (
-          <Text style={styles.valueText}>৳{totalValue.toLocaleString()} · {t.bondValueNote}</Text>
-        )}
+        <View style={styles.sortRow}>
+          {(['date', 'number', 'series'] as const).map((s) => (
+            <TouchableOpacity key={s} onPress={() => setSortBy(s)} style={[styles.sortBtn, sortBy === s && styles.sortBtnActive]}>
+              <Text style={[styles.sortBtnText, sortBy === s && styles.sortBtnTextActive]}>
+                {s === 'date' ? 'Date' : s === 'number' ? '0–9' : 'Series'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <FlatList
@@ -232,8 +245,12 @@ const styles = StyleSheet.create({
   searchBar: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   searchInput: { backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
-  listHeader: { fontSize: 13, fontWeight: '600', color: '#64748b' },
-  valueText: { fontSize: 11, color: '#0284c7', fontWeight: '600' },
+  listHeader: { fontSize: 13, fontWeight: '600', color: '#64748b', flex: 1 },
+  sortRow: { flexDirection: 'row', gap: 4 },
+  sortBtn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: '#f1f5f9' },
+  sortBtnActive: { backgroundColor: '#0284c7' },
+  sortBtnText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
+  sortBtnTextActive: { color: '#fff' },
   bondCard: { backgroundColor: '#fff', borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
   bondNum: { fontFamily: 'monospace', fontSize: 18, fontWeight: '700' },
   bondMeta: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
