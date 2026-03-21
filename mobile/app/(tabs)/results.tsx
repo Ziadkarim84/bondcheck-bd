@@ -42,10 +42,10 @@ function DrawDetail({ draw }: { draw: any }) {
 
 export default function ResultsScreen() {
   const [latest, setLatest] = useState<any>(null);
-  const [draws, setDraws] = useState<any[]>([]);
-  const [selectedDraw, setSelectedDraw] = useState<number | null>(null);
-  const [selectedData, setSelectedData] = useState<any>(null);
-  const [loadingSelected, setLoadingSelected] = useState(false);
+  const [previousDraws, setPreviousDraws] = useState<any[]>([]);
+  const [expandedDraw, setExpandedDraw] = useState<number | null>(null);
+  const [loadedDraws, setLoadedDraws] = useState<Record<number, any>>({});
+  const [loadingDraw, setLoadingDraw] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
@@ -55,25 +55,29 @@ export default function ResultsScreen() {
         api.get('/results').then((r) => r.data),
       ]);
       setLatest(latestRes);
-      setDraws(drawsRes.draws ?? []);
+      const prev = (drawsRes.draws ?? []).filter((d: any) => d.drawNumber !== latestRes?.drawNumber);
+      setPreviousDraws(prev);
     } catch {}
   }
 
-  async function loadDraw(drawNumber: number) {
-    if (drawNumber === latest?.drawNumber) { setSelectedDraw(null); setSelectedData(null); return; }
-    setSelectedDraw(drawNumber);
-    setLoadingSelected(true);
+  async function toggleDraw(drawNumber: number) {
+    if (expandedDraw === drawNumber) {
+      setExpandedDraw(null);
+      return;
+    }
+    setExpandedDraw(drawNumber);
+    if (loadedDraws[drawNumber]) return; // already cached
+    setLoadingDraw(drawNumber);
     try {
       const { data } = await api.get(`/results/${drawNumber}`);
-      setSelectedData(data);
-    } catch {} finally { setLoadingSelected(false); }
+      setLoadedDraws((prev) => ({ ...prev, [drawNumber]: data }));
+    } catch {} finally {
+      setLoadingDraw(null);
+    }
   }
 
   useEffect(() => { load(); }, []);
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
-
-  const shownDraw = selectedData ?? latest;
-  const previousDraws = draws.filter((d) => d.drawNumber !== latest?.drawNumber);
 
   if (!latest) {
     return (
@@ -86,47 +90,56 @@ export default function ResultsScreen() {
 
   return (
     <ScrollView style={styles.screen} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-      {/* Header */}
+      {/* Latest draw — always visible */}
       <View style={styles.header}>
-        <Text style={styles.drawTitle}>
-          Draw #{shownDraw?.drawNumber}
-          {selectedDraw === null && <Text style={styles.latestBadge}> Latest</Text>}
-        </Text>
+        <Text style={styles.drawTitle}>Draw #{latest.drawNumber} <Text style={styles.latestBadge}>Latest</Text></Text>
         <Text style={styles.drawDate}>
-          {shownDraw?.drawDate
-            ? new Date(shownDraw.drawDate).toLocaleDateString('en-BD', { year: 'numeric', month: 'long', day: 'numeric' })
+          {latest.drawDate
+            ? new Date(latest.drawDate).toLocaleDateString('en-BD', { year: 'numeric', month: 'long', day: 'numeric' })
             : ''}
         </Text>
       </View>
 
-      {loadingSelected ? (
-        <ActivityIndicator style={{ marginTop: 32 }} color="#0284c7" />
-      ) : (
-        <DrawDetail draw={shownDraw} />
-      )}
+      <DrawDetail draw={latest} />
 
-      <Text style={styles.taxNote}>
-        ⚠️ 20% source tax applies. Claim within 2 years.
-      </Text>
+      <Text style={styles.taxNote}>⚠️ 20% source tax applies. Claim within 2 years.</Text>
 
-      {/* Previous draws */}
+      {/* Previous draws accordion */}
       {previousDraws.length > 0 && (
         <View style={styles.prevCard}>
           <Text style={styles.prevTitle}>Previous Draws</Text>
-          {previousDraws.map((d) => (
-            <TouchableOpacity
-              key={d.drawNumber}
-              style={[styles.prevRow, selectedDraw === d.drawNumber && styles.prevRowActive]}
-              onPress={() => loadDraw(d.drawNumber)}
-            >
-              <Text style={[styles.prevDrawNum, selectedDraw === d.drawNumber && styles.prevDrawNumActive]}>
-                Draw #{d.drawNumber}
-              </Text>
-              <Text style={styles.prevDrawDate}>
-                {new Date(d.drawDate).toLocaleDateString()}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {previousDraws.map((d) => {
+            const isExpanded = expandedDraw === d.drawNumber;
+            const isLoading = loadingDraw === d.drawNumber;
+            const data = loadedDraws[d.drawNumber];
+            return (
+              <View key={d.drawNumber}>
+                <TouchableOpacity style={styles.prevRow} onPress={() => toggleDraw(d.drawNumber)}>
+                  <View>
+                    <Text style={[styles.prevDrawNum, isExpanded && styles.prevDrawNumActive]}>
+                      Draw #{d.drawNumber}
+                    </Text>
+                    <Text style={styles.prevDrawDate}>
+                      {new Date(d.drawDate).toLocaleDateString('en-BD', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                  <Text style={[styles.chevron, isExpanded && styles.chevronOpen]}>›</Text>
+                </TouchableOpacity>
+
+                {isExpanded && (
+                  <View style={styles.expandedBody}>
+                    {isLoading ? (
+                      <ActivityIndicator color="#0284c7" style={{ margin: 16 }} />
+                    ) : data ? (
+                      <DrawDetail draw={data} />
+                    ) : (
+                      <Text style={styles.loadError}>Failed to load draw data.</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -169,8 +182,11 @@ const styles = StyleSheet.create({
   prevCard: { backgroundColor: '#fff', marginHorizontal: 12, marginTop: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', overflow: 'hidden' },
   prevTitle: { fontSize: 13, fontWeight: '600', color: '#64748b', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 },
   prevRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
-  prevRowActive: { backgroundColor: '#eff6ff' },
   prevDrawNum: { fontSize: 14, fontWeight: '600', color: '#334155' },
   prevDrawNumActive: { color: '#0284c7' },
-  prevDrawDate: { fontSize: 12, color: '#94a3b8' },
+  prevDrawDate: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
+  chevron: { fontSize: 22, color: '#94a3b8', transform: [{ rotate: '0deg' }] },
+  chevronOpen: { color: '#0284c7', transform: [{ rotate: '90deg' }] },
+  expandedBody: { borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingBottom: 8 },
+  loadError: { color: '#ef4444', fontSize: 13, padding: 16 },
 });
