@@ -40,7 +40,9 @@ function DrawDetail({ draw }: { draw: any }) {
 }
 
 export default function ResultsPage() {
-  const [selectedDrawNumber, setSelectedDrawNumber] = useState<number | null>(null);
+  const [expandedDraw, setExpandedDraw] = useState<number | null>(null);
+  const [loadedDraws, setLoadedDraws] = useState<Record<number, any>>({});
+  const [loadingDraw, setLoadingDraw] = useState<number | null>(null);
 
   const { data: latest, isLoading } = useQuery({
     queryKey: ['results', 'latest'],
@@ -52,15 +54,26 @@ export default function ResultsPage() {
     queryFn: () => api.get('/results').then((r) => r.data),
   });
 
-  const { data: selectedDraw, isLoading: loadingSelected } = useQuery({
-    queryKey: ['results', selectedDrawNumber],
-    queryFn: () => api.get(`/results/${selectedDrawNumber}`).then((r) => r.data),
-    enabled: selectedDrawNumber !== null,
-  });
-
   const previousDraws = (allDraws?.draws ?? []).filter(
     (d: any) => d.drawNumber !== latest?.drawNumber
   );
+
+  async function toggleDraw(drawNumber: number) {
+    if (expandedDraw === drawNumber) {
+      setExpandedDraw(null);
+      return;
+    }
+    setExpandedDraw(drawNumber);
+    if (loadedDraws[drawNumber]) return; // already cached
+    setLoadingDraw(drawNumber);
+    try {
+      const { data } = await api.get(`/results/${drawNumber}`);
+      setLoadedDraws((prev) => ({ ...prev, [drawNumber]: data }));
+    } catch {
+    } finally {
+      setLoadingDraw(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -77,7 +90,7 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {/* Latest draw */}
+      {/* Latest draw — always visible */}
       {latest && (
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center justify-between">
@@ -94,43 +107,51 @@ export default function ResultsPage() {
             </span>
           </div>
           <DrawDetail draw={latest} />
+          <p className="text-xs text-gray-400 mt-4 text-center">⚠️ 20% source tax applies. Claim within 2 years.</p>
         </div>
       )}
 
-      {/* Previous draws */}
+      {/* Previous draws accordion */}
       {previousDraws.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold mb-3 text-sm text-gray-700">Previous Draws</h2>
-          <div className="space-y-1">
-            {previousDraws.map((d: any) => (
+        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+          <div className="px-5 py-3">
+            <h2 className="font-semibold text-sm text-gray-700">Previous Draws</h2>
+          </div>
+          {previousDraws.map((d: any) => {
+            const isExpanded = expandedDraw === d.drawNumber;
+            const isLoading = loadingDraw === d.drawNumber;
+            const data = loadedDraws[d.drawNumber];
+            return (
               <div key={d.drawNumber}>
                 <button
-                  onClick={() =>
-                    setSelectedDrawNumber(
-                      selectedDrawNumber === d.drawNumber ? null : d.drawNumber
-                    )
-                  }
-                  className="w-full flex justify-between items-center text-sm py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={() => toggleDraw(d.drawNumber)}
+                  className="w-full flex justify-between items-center text-sm py-3 px-5 hover:bg-gray-50 transition-colors"
                 >
-                  <span className="font-medium">Draw #{d.drawNumber}</span>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <span>{new Date(d.drawDate).toLocaleDateString()}</span>
-                    <span>{selectedDrawNumber === d.drawNumber ? '▲' : '▼'}</span>
+                  <div className="text-left">
+                    <span className={`font-semibold ${isExpanded ? 'text-brand-600' : 'text-gray-800'}`}>
+                      Draw #{d.drawNumber}
+                    </span>
+                    <span className="ml-3 text-gray-400">
+                      {new Date(d.drawDate).toLocaleDateString('en-BD', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </span>
                   </div>
+                  <span className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>›</span>
                 </button>
 
-                {selectedDrawNumber === d.drawNumber && (
-                  <div className="px-3 pb-3">
-                    {loadingSelected ? (
+                {isExpanded && (
+                  <div className="px-5 pb-5 border-t border-gray-100">
+                    {isLoading ? (
                       <p className="text-sm text-gray-400 py-4 text-center">Loading...</p>
-                    ) : selectedDraw ? (
-                      <DrawDetail draw={selectedDraw} />
-                    ) : null}
+                    ) : data ? (
+                      <DrawDetail draw={data} />
+                    ) : (
+                      <p className="text-sm text-red-400 py-4 text-center">Failed to load draw data.</p>
+                    )}
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
     </div>
