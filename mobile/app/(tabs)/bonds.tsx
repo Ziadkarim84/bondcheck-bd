@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, RefreshControl, Clipboard } from 'react-native';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
@@ -17,6 +17,7 @@ export default function BondsScreen() {
   const [series, setSeries] = useState('');
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
 
   async function load() {
     try {
@@ -66,15 +67,29 @@ export default function BondsScreen() {
 
   async function handleDelete(id: string, num: string) {
     Alert.alert('Delete Bond', `Remove bond #${num}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+      { text: t.cancel, style: 'cancel' },
+      { text: t.delete, style: 'destructive', onPress: async () => {
         await api.delete(`/bonds/${id}`);
         load();
       }},
     ]);
   }
 
+  function handleLongPress(num: string) {
+    Clipboard.setString(num);
+    Alert.alert('', t.copyNumber);
+  }
+
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+
+  const filtered = search.trim()
+    ? bonds.filter((b) =>
+        b.number.includes(search.trim()) ||
+        (b.series ?? '').toLowerCase().includes(search.trim().toLowerCase())
+      )
+    : bonds;
+
+  const totalValue = bonds.length * 100;
 
   return (
     <View style={styles.screen}>
@@ -149,14 +164,35 @@ export default function BondsScreen() {
         )}
       </View>
 
-      <Text style={styles.listHeader}>Your Bonds ({bonds.length})</Text>
+      {/* Search + summary */}
+      <View style={styles.searchBar}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder={t.searchBonds}
+          value={search}
+          onChangeText={setSearch}
+          clearButtonMode="while-editing"
+        />
+      </View>
+      <View style={styles.summaryRow}>
+        <Text style={styles.listHeader}>
+          {search ? `${filtered.length} / ${bonds.length}` : bonds.length} bonds
+        </Text>
+        {totalValue > 0 && (
+          <Text style={styles.valueText}>৳{totalValue.toLocaleString()} · {t.bondValueNote}</Text>
+        )}
+      </View>
 
       <FlatList
-        data={bonds}
+        data={filtered}
         keyExtractor={(b) => b.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         renderItem={({ item: b }) => (
-          <View style={styles.bondCard}>
+          <TouchableOpacity
+            style={styles.bondCard}
+            onLongPress={() => handleLongPress(b.number)}
+            delayLongPress={400}
+          >
             <View>
               <Text style={styles.bondNum}>{b.number}</Text>
               <Text style={styles.bondMeta}>
@@ -167,10 +203,14 @@ export default function BondsScreen() {
             <TouchableOpacity onPress={() => handleDelete(b.id, b.number)}>
               <Text style={styles.deleteBtn}>✕</Text>
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         )}
-        ListEmptyComponent={<Text style={styles.empty}>No bonds yet. Add your first bond above.</Text>}
-        contentContainerStyle={{ padding: 16, paddingTop: 8 }}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {search ? 'No bonds match your search.' : t.noBondsYet + ' ' + t.addBond + ' above.'}
+          </Text>
+        }
+        contentContainerStyle={{ padding: 16, paddingTop: 4 }}
       />
     </View>
   );
@@ -179,7 +219,6 @@ export default function BondsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#f8fafc' },
   addSection: { backgroundColor: '#fff', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  label: { fontSize: 13, fontWeight: '600', color: '#64748b', marginBottom: 8 },
   modeRow: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 3, marginBottom: 10 },
   modeBtn: { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 6 },
   modeBtnActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, elevation: 2 },
@@ -190,7 +229,11 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, fontSize: 14, backgroundColor: '#f8fafc' },
   addBtn: { backgroundColor: '#0284c7', borderRadius: 8, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   addBtnText: { color: '#fff', fontSize: 22, fontWeight: '600' },
-  listHeader: { fontSize: 13, fontWeight: '600', color: '#64748b', padding: 16, paddingBottom: 4 },
+  searchBar: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  searchInput: { backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
+  listHeader: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  valueText: { fontSize: 11, color: '#0284c7', fontWeight: '600' },
   bondCard: { backgroundColor: '#fff', borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
   bondNum: { fontFamily: 'monospace', fontSize: 18, fontWeight: '700' },
   bondMeta: { fontSize: 12, color: '#94a3b8', marginTop: 2 },

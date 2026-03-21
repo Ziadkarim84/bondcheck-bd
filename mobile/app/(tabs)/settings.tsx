@@ -1,9 +1,14 @@
-import { View, Text, TouchableOpacity, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Share, Linking, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
 import { api } from '../../services/api';
 
+const APP_VERSION = '1.0.0';
+const CONTACT_EMAIL = 'support@bondcheckbd.com';
+
 export default function SettingsScreen() {
+  const router = useRouter();
   const { user, language, setLanguage, logout } = useAuthStore();
   const t = strings[language] ?? strings.en;
 
@@ -19,10 +24,26 @@ export default function SettingsScreen() {
     ]);
   }
 
+  async function handleShare() {
+    try {
+      await Share.share({
+        message: 'Check your Bangladesh prize bond results instantly with BondCheck BD! Add your bonds and get notified when you win. 🎉\n\nhttps://play.google.com/store/apps/details?id=com.bondcheckbd.app',
+        title: 'BondCheck BD',
+      });
+    } catch {}
+  }
+
+  function handleContact() {
+    Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=BondCheck BD Feedback`);
+  }
+
   return (
-    <View style={styles.screen}>
+    <ScrollView style={styles.screen}>
       {/* User info */}
       <View style={styles.card}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{(user?.name ?? 'U')[0].toUpperCase()}</Text>
+        </View>
         <Text style={styles.name}>{user?.name}</Text>
         <Text style={styles.email}>{user?.email}</Text>
         <View style={[styles.badge, user?.tier === 'premium' ? styles.badgePremium : styles.badgeFree]}>
@@ -48,25 +69,58 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* App info */}
+      {/* Actions */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>About</Text>
-        <Text style={styles.infoText}>BondCheck BD v1.0.0</Text>
-        <Text style={styles.infoText}>Bangladesh Prize Bond Checker</Text>
-        <Text style={styles.infoText}>Data source: Bangladesh Bank (bb.org.bd)</Text>
+        <TouchableOpacity style={styles.row} onPress={handleShare}>
+          <Text style={styles.rowIcon}>📤</Text>
+          <Text style={styles.rowText}>{t.shareApp}</Text>
+          <Text style={styles.rowChevron}>›</Text>
+        </TouchableOpacity>
+        <View style={styles.divider} />
+        <TouchableOpacity style={styles.row} onPress={() => router.push('/privacy')}>
+          <Text style={styles.rowIcon}>🔒</Text>
+          <Text style={styles.rowText}>{t.privacyPolicy}</Text>
+          <Text style={styles.rowChevron}>›</Text>
+        </TouchableOpacity>
+        <View style={styles.divider} />
+        <TouchableOpacity style={styles.row} onPress={handleContact}>
+          <Text style={styles.rowIcon}>✉️</Text>
+          <Text style={styles.rowText}>{t.contactUs}</Text>
+          <Text style={styles.rowChevron}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* About */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>{t.about}</Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>{t.version}</Text>
+          <Text style={styles.infoValue}>v{APP_VERSION}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>{t.dataSource}</Text>
+          <Text style={styles.infoValue}>Bangladesh Bank</Text>
+        </View>
+        <Text style={styles.infoDesc}>
+          BondCheck BD automatically checks your prize bonds against official draw results from Bangladesh Bank (bb.org.bd).
+        </Text>
       </View>
 
       {/* Logout */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutText}>{t.logout}</Text>
       </TouchableOpacity>
-    </View>
+
+      <View style={{ height: 32 }} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#f8fafc', padding: 16 },
   card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#0284c7', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  avatarText: { color: '#fff', fontSize: 24, fontWeight: '700' },
   name: { fontSize: 18, fontWeight: '700' },
   email: { fontSize: 14, color: '#64748b', marginTop: 2 },
   badge: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
@@ -79,7 +133,15 @@ const styles = StyleSheet.create({
   langBtnActive: { backgroundColor: '#0284c7' },
   langBtnText: { fontWeight: '600', color: '#64748b' },
   langBtnTextActive: { color: '#fff' },
-  infoText: { fontSize: 13, color: '#64748b', marginBottom: 4 },
-  logoutBtn: { backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca', marginTop: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  rowIcon: { fontSize: 18, marginRight: 12 },
+  rowText: { flex: 1, fontSize: 15, color: '#334155', fontWeight: '500' },
+  rowChevron: { fontSize: 20, color: '#94a3b8' },
+  divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 10 },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  infoLabel: { fontSize: 13, color: '#64748b' },
+  infoValue: { fontSize: 13, color: '#334155', fontWeight: '600' },
+  infoDesc: { fontSize: 12, color: '#94a3b8', marginTop: 8, lineHeight: 18 },
+  logoutBtn: { backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca', marginTop: 4 },
   logoutText: { color: '#dc2626', fontWeight: '600', fontSize: 15 },
 });
