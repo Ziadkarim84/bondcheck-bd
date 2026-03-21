@@ -3,10 +3,14 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, R
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
+import { useRouter } from 'expo-router';
+import AdBanner from '../../components/AdBanner';
+import { useInterstitialAd } from '../../hooks/useInterstitialAd';
 
 interface Bond { id: string; number: string; series?: string; addedVia: string; createdAt: string; }
 
 export default function BondsScreen() {
+  const router = useRouter();
   const lang = useAuthStore((s) => s.language);
   const t = strings[lang] ?? strings.en;
   const [bonds, setBonds] = useState<Bond[]>([]);
@@ -19,6 +23,7 @@ export default function BondsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'number' | 'series'>('date');
+  const { maybeShow: maybeShowAd } = useInterstitialAd(3);
 
   async function load() {
     try {
@@ -47,8 +52,17 @@ export default function BondsScreen() {
         Alert.alert('Done', `Added ${data.added} bond${data.added !== 1 ? 's' : ''}`);
         setRangeFrom(''); setRangeTo(''); setSeries('');
         load();
+        maybeShowAd();
       } catch (err: any) {
-        Alert.alert('Error', err.response?.data?.error ?? 'Failed to add range');
+        const msg = err.response?.data?.error ?? 'Failed to add range';
+        if (err.response?.status === 403) {
+          Alert.alert('Limit Reached', msg, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: '⭐ Upgrade', onPress: () => router.push('/premium') },
+          ]);
+        } else {
+          Alert.alert('Error', msg);
+        }
       } finally { setAdding(false); }
     } else {
       if (!/^\d{7}$/.test(number)) {
@@ -60,8 +74,17 @@ export default function BondsScreen() {
         await api.post('/bonds', { number, series: series || undefined });
         setNumber(''); setSeries('');
         load();
+        maybeShowAd();
       } catch (err: any) {
-        Alert.alert('Error', err.response?.data?.error ?? 'Failed to add bond');
+        const msg = err.response?.data?.error ?? 'Failed to add bond';
+        if (err.response?.status === 403) {
+          Alert.alert('Limit Reached', msg, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: '⭐ Upgrade', onPress: () => router.push('/premium') },
+          ]);
+        } else {
+          Alert.alert('Error', msg);
+        }
       } finally { setAdding(false); }
     }
   }
@@ -224,6 +247,7 @@ export default function BondsScreen() {
           </Text>
         }
         contentContainerStyle={{ padding: 16, paddingTop: 4 }}
+        ListFooterComponent={<AdBanner />}
       />
     </View>
   );

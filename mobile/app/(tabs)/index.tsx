@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Share, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Share } from 'react-native';
 import { useRouter } from 'expo-router';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
+import AdBanner from '../../components/AdBanner';
 
 function getNextDrawDate(): Date {
   const now = new Date();
@@ -181,7 +182,8 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={{ height: 24 }} />
+      <View style={{ height: 16 }} />
+      <AdBanner />
     </ScrollView>
   );
 }
