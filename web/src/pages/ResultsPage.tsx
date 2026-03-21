@@ -54,9 +54,9 @@ export default function ResultsPage() {
     queryFn: () => api.get('/results').then((r) => r.data),
   });
 
-  const previousDraws = (allDraws?.draws ?? []).filter(
-    (d: any) => d.drawNumber !== latest?.drawNumber
-  );
+  const previousDraws = (allDraws?.draws ?? [])
+    .filter((d: any) => d.drawNumber !== latest?.drawNumber)
+    .slice(0, 7); // latest + 7 previous = 8 total draws
 
   async function toggleDraw(drawNumber: number) {
     if (expandedDraw === drawNumber) {

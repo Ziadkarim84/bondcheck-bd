@@ -82,7 +82,7 @@ export default function PremiumScreen() {
           <View style={styles.popularBadge}><Text style={styles.popularText}>POPULAR</Text></View>
           <Text style={[styles.planTitle, { color: '#fff' }]}>Premium</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.planPricePremium}>৳199</Text>
+            <Text style={styles.planPricePremium}>৳99</Text>
             <Text style={styles.planPriceUnit}>/mo</Text>
           </View>
           {PREMIUM_FEATURES.map((f) => (
@@ -97,8 +97,8 @@ export default function PremiumScreen() {
       {/* Yearly deal */}
       <View style={styles.yearlyCard}>
         <View>
-          <Text style={styles.yearlyTitle}>Yearly Plan</Text>
-          <Text style={styles.yearlySub}>৳1,499/year — save 37%</Text>
+          <Text style={styles.yearlyTitle}>Lifetime Plan</Text>
+          <Text style={styles.yearlySub}>৳999 — pay once, own forever</Text>
         </View>
         <View style={styles.saveBadge}><Text style={styles.saveText}>BEST VALUE</Text></View>
       </View>

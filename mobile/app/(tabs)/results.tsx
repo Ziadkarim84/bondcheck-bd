@@ -55,7 +55,9 @@ export default function ResultsScreen() {
         api.get('/results').then((r) => r.data),
       ]);
       setLatest(latestRes);
-      const prev = (drawsRes.draws ?? []).filter((d: any) => d.drawNumber !== latestRes?.drawNumber);
+      const prev = (drawsRes.draws ?? [])
+        .filter((d: any) => d.drawNumber !== latestRes?.drawNumber)
+        .slice(0, 7); // latest + 7 previous = 8 total draws
       setPreviousDraws(prev);
     } catch {}
   }

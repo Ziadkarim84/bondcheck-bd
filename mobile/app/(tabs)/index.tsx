@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Share } from 'react-native';
 import { useRouter } from 'expo-router';
+import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
+import AdBanner from '../../components/AdBanner';
+import { AD_UNIT_IDS } from '../../constants/ads';
 
 function getNextDrawDate(): Date {
   const now = new Date();
@@ -40,10 +43,22 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, language } = useAuthStore();
   const t = strings[language] ?? strings.en;
+  const isPremium = user?.tier === 'premium';
   const [latest, setLatest] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [wins, setWins] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  // Free users must watch an ad to reveal their win results
+  const [resultsUnlocked, setResultsUnlocked] = useState(isPremium);
+  const [adLoaded, setAdLoaded] = useState(false);
+  const interstitialRef = useState(() => {
+    if (isPremium) return null;
+    const ad = InterstitialAd.createForAdRequest(AD_UNIT_IDS.interstitial);
+    ad.addAdEventListener(AdEventType.LOADED, () => setAdLoaded(true));
+    ad.addAdEventListener(AdEventType.CLOSED, () => setResultsUnlocked(true));
+    ad.load();
+    return ad;
+  })[0];
 
   async function load() {
     try {
@@ -60,6 +75,16 @@ export default function HomeScreen() {
 
   useEffect(() => { load(); }, []);
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
+
+  function handleCheckResults() {
+    if (isPremium || resultsUnlocked) return;
+    if (adLoaded && interstitialRef) {
+      interstitialRef.show();
+    } else {
+      // Ad not loaded yet (e.g. no network) — unlock anyway
+      setResultsUnlocked(true);
+    }
+  }
 
   async function handleShareWin(m: any) {
     const prize = m.drawResult?.prizeAmount ?? 0;
@@ -118,16 +143,32 @@ export default function HomeScreen() {
       </View>
 
       {/* My Wins */}
-      <View style={wins.length > 0 ? styles.winsCard : styles.winsCardEmpty}>
+      <View style={wins.length > 0 && resultsUnlocked ? styles.winsCard : styles.winsCardEmpty}>
         <View style={styles.winsHeader}>
           <Text style={styles.sectionTitle}>🏆 {t.myWins}</Text>
-          {wins.length > 5 && (
+          {wins.length > 5 && resultsUnlocked && (
             <Text style={styles.seeAll}>{wins.length} total</Text>
           )}
         </View>
-        {wins.length === 0 ? (
+
+        {/* Free user — ad gate */}
+        {!resultsUnlocked && (
+          <View style={styles.adGate}>
+            <Text style={styles.adGateIcon}>🔒</Text>
+            <Text style={styles.adGateTitle}>Check Your Results</Text>
+            <Text style={styles.adGateDesc}>Watch a short ad to see if your bonds won a prize.</Text>
+            <TouchableOpacity style={styles.adGateBtn} onPress={handleCheckResults}>
+              <Text style={styles.adGateBtnText}>▶ Watch Ad & Check</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/premium')}>
+              <Text style={styles.adGateUpgrade}>⭐ Upgrade to skip ads forever</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {resultsUnlocked && wins.length === 0 ? (
           <Text style={styles.winsEmpty}>{t.winsNoWins}</Text>
-        ) : (
+        ) : resultsUnlocked && (
           wins.slice(0, 5).map((m: any) => {
             const prize = m.drawResult?.prizeAmount ?? 0;
             const drawDate = m.drawResult?.drawDate;
@@ -155,6 +196,7 @@ export default function HomeScreen() {
         )}
       </View>
 
+
       {/* Latest draw */}
       {latest && (
         <View style={styles.drawCard}>
@@ -181,7 +223,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={{ height: 24 }} />
+      <AdBanner />
     </ScrollView>
   );
 }
@@ -226,4 +268,11 @@ const styles = StyleSheet.create({
   btnPrimaryText: { color: '#fff', fontWeight: '600', fontSize: 15 },
   btnSecondary: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
   btnSecondaryText: { color: '#334155', fontWeight: '600', fontSize: 15 },
+  adGate: { alignItems: 'center', paddingVertical: 16 },
+  adGateIcon: { fontSize: 32, marginBottom: 8 },
+  adGateTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
+  adGateDesc: { fontSize: 13, color: '#64748b', textAlign: 'center', marginBottom: 14 },
+  adGateBtn: { backgroundColor: '#0284c7', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 24 },
+  adGateBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  adGateUpgrade: { fontSize: 12, color: '#92400e', fontWeight: '600', marginTop: 12 },
 });
