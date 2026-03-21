@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
-import AdBanner from '../../components/AdBanner';
 
 function getNextDrawDate(): Date {
   const now = new Date();
@@ -182,8 +181,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={{ height: 16 }} />
-      <AdBanner />
+      <View style={{ height: 24 }} />
     </ScrollView>
   );
 }

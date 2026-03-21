@@ -4,7 +4,6 @@ import { api } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
 import { useRouter } from 'expo-router';
-import AdBanner from '../../components/AdBanner';
 import { useInterstitialAd } from '../../hooks/useInterstitialAd';
 
 interface Bond { id: string; number: string; series?: string; addedVia: string; createdAt: string; }
@@ -23,7 +22,7 @@ export default function BondsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'number' | 'series'>('date');
-  const { maybeShow: maybeShowAd } = useInterstitialAd(3);
+  const { maybeShow: maybeShowAd } = useInterstitialAd(5);
 
   async function load() {
     try {
@@ -247,7 +246,6 @@ export default function BondsScreen() {
           </Text>
         }
         contentContainerStyle={{ padding: 16, paddingTop: 4 }}
-        ListFooterComponent={<AdBanner />}
       />
     </View>
   );
