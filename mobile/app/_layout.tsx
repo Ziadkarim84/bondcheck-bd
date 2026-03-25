@@ -28,29 +28,23 @@ export default function RootLayout() {
   const { isReady, accessToken, hydrate } = useAuthStore();
   const router = useRouter();
   const segments = useSegments();
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-  const [onboardingDone, setOnboardingDone] = useState(false);
-
   useEffect(() => {
     hydrate();
-    SecureStore.getItemAsync('onboarding_done').then((v) => {
-      setOnboardingDone(!!v);
-      setOnboardingChecked(true);
-    });
   }, []);
 
   useEffect(() => {
-    if (!isReady || !onboardingChecked) return;
+    if (!isReady) return;
 
-    if (!onboardingDone) {
-      router.replace('/onboarding');
-      return;
-    }
-
-    const inAuth = segments[0] === '(auth)';
-    if (!accessToken && !inAuth) router.replace('/(auth)/login');
-    if (accessToken && inAuth) router.replace('/(tabs)/');
-  }, [isReady, accessToken, onboardingChecked, onboardingDone]);
+    SecureStore.getItemAsync('onboarding_done').then((v) => {
+      if (!v) {
+        router.replace('/onboarding');
+        return;
+      }
+      const inAuth = segments[0] === '(auth)';
+      if (!accessToken && !inAuth) router.replace('/(auth)/login');
+      if (accessToken && inAuth) router.replace('/(tabs)/');
+    });
+  }, [isReady, accessToken, segments]);
 
   useEffect(() => {
     if (accessToken) registerForPushNotifications();
