@@ -1,14 +1,16 @@
 import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState(searchParams.get('ref')?.toUpperCase() ?? '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +19,10 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/register', { name, email, password });
+      const { data } = await api.post('/auth/register', {
+        name, email, password,
+        ...(referralCode ? { referralCode } : {}),
+      });
       setAuth(data.user, data.accessToken, data.refreshToken);
       navigate('/');
     } catch (err: any) {
@@ -58,6 +63,14 @@ export default function RegisterPage() {
             required
             minLength={6}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <input
+            type="text"
+            placeholder="Referral code (optional)"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            maxLength={6}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 tracking-widest"
           />
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <button

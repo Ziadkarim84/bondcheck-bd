@@ -16,10 +16,14 @@ model User {
   tier         Tier          @default(free)
   fcmToken     String?       @map("fcm_token") @db.VarChar(500)
   expoPushToken String?      @map("expo_push_token") @db.VarChar(500)
-  language     Language      @default(bn)
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  language      Language      @default(bn)
+  referralCode  String?       @unique @map("referral_code") @db.VarChar(8)
+  referredById  String?       @map("referred_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
+  referredBy    User?         @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals     User[]        @relation("UserReferrals")
   bonds         Bond[]
   matchResults  MatchResult[]
   ocrJobs       OcrJob[]

@@ -6,6 +6,7 @@ import { resultsRouter } from './routes/results';
 import { matchesRouter } from './routes/matches';
 import { notificationsRouter } from './routes/notifications';
 import { adminRouter } from './routes/admin';
+import { referralsRouter } from './routes/referrals';
 import { errorHandler } from './middleware/errorHandler';
 
 export function createApp() {
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/v1/matches', matchesRouter);
   app.use('/v1/notifications', notificationsRouter);
   app.use('/v1/admin', adminRouter);
+  app.use('/v1/referrals', referralsRouter);
 
   app.use(errorHandler);
 

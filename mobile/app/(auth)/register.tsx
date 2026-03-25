@@ -10,12 +10,16 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleRegister() {
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/register', { name, email, password });
+      const { data } = await api.post('/auth/register', {
+        name, email, password,
+        ...(referralCode ? { referralCode } : {}),
+      });
       await setAuth(data.user, data.accessToken, data.refreshToken);
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.error ?? 'Registration failed');
@@ -32,6 +36,7 @@ export default function RegisterScreen() {
       <TextInput style={styles.input} placeholder="Full name" value={name} onChangeText={setName} />
       <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
       <TextInput style={styles.input} placeholder="Password (min 6)" value={password} onChangeText={setPassword} secureTextEntry />
+      <TextInput style={styles.input} placeholder="Referral code (optional)" value={referralCode} onChangeText={(t) => setReferralCode(t.toUpperCase())} autoCapitalize="characters" maxLength={6} />
 
       {loading ? (
         <ActivityIndicator color="#0284c7" style={{ marginTop: 16 }} />

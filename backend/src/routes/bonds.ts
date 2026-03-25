@@ -9,11 +9,10 @@ import { uploadBondImage } from '../services/storageService';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { checkBondAgainstAllResults } from '../services/matchingEngine';
+import { getFreeBondLimit } from '../utils/bondLimit';
 
 export const bondsRouter = Router();
 bondsRouter.use(authenticate);
-
-const FREE_BOND_LIMIT = 50;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const ocrQueue = new Queue('ocr-queue', { connection: { url: REDIS_URL } });
 
@@ -63,9 +62,10 @@ bondsRouter.post('/', async (req: AuthRequest, res: Response, next: NextFunction
 
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
     if (user?.tier === 'free') {
+      const limit = await getFreeBondLimit(req.userId!);
       const count = await prisma.bond.count({ where: { userId: req.userId } });
-      if (count >= FREE_BOND_LIMIT) {
-        throw new AppError(403, `Free limit of ${FREE_BOND_LIMIT} bonds reached. Upgrade to Premium for unlimited bonds.`);
+      if (count >= limit) {
+        throw new AppError(403, `Free limit of ${limit} bonds reached. Refer friends or upgrade to Premium for more.`);
       }
     }
 
@@ -100,9 +100,10 @@ bondsRouter.post('/range', async (req: AuthRequest, res: Response, next: NextFun
 
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
     if (user?.tier === 'free') {
+      const limit = await getFreeBondLimit(req.userId!);
       const existing = await prisma.bond.count({ where: { userId: req.userId } });
-      if (existing + rangeCount > FREE_BOND_LIMIT) {
-        throw new AppError(403, `Adding ${rangeCount} bonds would exceed your free limit of ${FREE_BOND_LIMIT}. Upgrade to Premium for unlimited bonds.`);
+      if (existing + rangeCount > limit) {
+        throw new AppError(403, `Adding ${rangeCount} bonds would exceed your free limit of ${limit}. Refer friends or upgrade to Premium for more.`);
       }
     }
 
@@ -178,6 +179,15 @@ bondsRouter.post('/ocr/:jobId/confirm', async (req: AuthRequest, res: Response, 
     if (!job || job.userId !== req.userId) throw new AppError(404, 'OCR job not found');
     if (job.status !== 'done') throw new AppError(400, 'OCR job is not complete');
 
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (user?.tier === 'free') {
+      const limit = await getFreeBondLimit(req.userId!);
+      const existing = await prisma.bond.count({ where: { userId: req.userId } });
+      if (existing + numbers.length > limit) {
+        throw new AppError(403, `Adding ${numbers.length} bonds would exceed your free limit of ${limit}. Refer friends or upgrade to Premium for more.`);
+      }
+    }
+
     const created = await Promise.all(
       numbers.map((number) =>
         prisma.bond.upsert({
@@ -212,7 +222,7 @@ bondsRouter.get('/stats', async (req: AuthRequest, res: Response, next: NextFunc
       totalPrizeEarned,
       afterTaxEarned: Math.floor(totalPrizeEarned * 0.8),
       tier: user?.tier ?? 'free',
-      bondLimit: user?.tier === 'premium' ? null : FREE_BOND_LIMIT,
+      bondLimit: user?.tier === 'premium' ? null : await getFreeBondLimit(req.userId!),
     });
   } catch (err) {
     next(err);

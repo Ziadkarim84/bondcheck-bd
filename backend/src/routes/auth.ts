@@ -8,6 +8,7 @@ import redisConnection from '../lib/redis';
 import { sendOTPEmail } from '../services/emailService';
 import { AppError } from '../middleware/errorHandler';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { generateUniqueReferralCode } from '../utils/referralCode';
 
 export const authRouter = Router();
 
@@ -16,6 +17,7 @@ const registerSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().min(7).max(20).optional(),
   password: z.string().min(6).optional(),
+  referralCode: z.string().length(6).optional(),
 }).refine((d) => d.email || d.phone, {
   message: 'Either email or phone is required',
 });
@@ -42,12 +44,23 @@ authRouter.post('/register', async (req: Request, res: Response, next: NextFunct
     const body = registerSchema.parse(req.body);
     const passwordHash = body.password ? await bcrypt.hash(body.password, 10) : null;
 
+    let referredById: string | undefined;
+    if (body.referralCode) {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: body.referralCode.toUpperCase() },
+      });
+      if (!referrer) throw new AppError(400, 'Invalid referral code');
+      referredById = referrer.id;
+    }
+
     const user = await prisma.user.create({
       data: {
         name: body.name,
         email: body.email,
         phone: body.phone,
         passwordHash,
+        referralCode: await generateUniqueReferralCode(),
+        referredById,
       },
     });
 
@@ -136,7 +149,9 @@ authRouter.post('/otp/verify', async (req: Request, res: Response, next: NextFun
 
     let user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      user = await prisma.user.create({ data: { name: email.split('@')[0], email } });
+      user = await prisma.user.create({
+        data: { name: email.split('@')[0], email, referralCode: await generateUniqueReferralCode() },
+      });
     }
 
     const tokens = generateTokens(user.id);
@@ -153,7 +168,7 @@ authRouter.get('/me', authenticate, async (req: AuthRequest, res: Response, next
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
-      select: { id: true, name: true, email: true, phone: true, tier: true, language: true },
+      select: { id: true, name: true, email: true, phone: true, tier: true, language: true, referralCode: true },
     });
     if (!user) throw new AppError(404, 'User not found');
     res.json(user);

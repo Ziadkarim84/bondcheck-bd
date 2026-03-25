@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Share, Linking, ScrollView } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { strings } from '../../constants/strings';
@@ -11,6 +13,11 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { user, language, setLanguage, logout } = useAuthStore();
   const t = strings[language] ?? strings.en;
+  const [referral, setReferral] = useState<{ referralCode: string; referralCount: number; bonusSlots: number; bondLimit: number; maxReferrals: number } | null>(null);
+
+  useEffect(() => {
+    api.get('/referrals').then((r) => setReferral(r.data)).catch(() => {});
+  }, []);
 
   async function handleLogout() {
     Alert.alert(t.logout, 'Are you sure?', [
@@ -31,6 +38,22 @@ export default function SettingsScreen() {
         title: 'BondCheck BD',
       });
     } catch {}
+  }
+
+  async function handleShareReferral() {
+    const code = referral?.referralCode ?? '';
+    try {
+      await Share.share({
+        message: `${t.referralShareMsg}\n\n${t.referralShareCode} ${code}\n\nhttps://bondcheckbd.vercel.app/register?ref=${code}`,
+      });
+    } catch {}
+  }
+
+  async function handleCopyCode() {
+    if (referral?.referralCode) {
+      await Clipboard.setStringAsync(referral.referralCode);
+      Alert.alert(t.referralCodeCopied);
+    }
   }
 
   function handleContact() {
@@ -80,6 +103,26 @@ export default function SettingsScreen() {
           <Text style={styles.rowChevron}>›</Text>
         </TouchableOpacity>
       )}
+
+      {/* Referral */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>{t.inviteFriends}</Text>
+        <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 10 }}>{t.referralDesc}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <View style={styles.codeBox}>
+            <Text style={styles.codeText}>{referral?.referralCode ?? '...'}</Text>
+          </View>
+          <TouchableOpacity onPress={handleCopyCode} style={styles.copyBtn}>
+            <Text style={styles.copyBtnText}>{t.copyCode}</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+          {referral?.referralCount ?? 0} {t.referrals} = +{referral?.bonusSlots ?? 0} {t.bonusSlots}
+        </Text>
+        <TouchableOpacity style={styles.shareRefBtn} onPress={handleShareReferral}>
+          <Text style={styles.shareRefBtnText}>{t.shareReferral}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Actions */}
       <View style={styles.card}>
@@ -158,6 +201,12 @@ const styles = StyleSheet.create({
   premiumIcon: { fontSize: 24 },
   premiumTitle: { fontSize: 15, fontWeight: '700', color: '#92400e' },
   premiumSub: { fontSize: 12, color: '#b45309', marginTop: 2 },
+  codeBox: { backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10 },
+  codeText: { fontSize: 20, fontWeight: '800', letterSpacing: 4, color: '#0284c7' },
+  copyBtn: { backgroundColor: '#e0f2fe', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  copyBtnText: { color: '#0284c7', fontWeight: '600', fontSize: 13 },
+  shareRefBtn: { backgroundColor: '#0284c7', borderRadius: 10, padding: 12, alignItems: 'center' },
+  shareRefBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   logoutBtn: { backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca', marginTop: 4 },
   logoutText: { color: '#dc2626', fontWeight: '600', fontSize: 15 },
 });
