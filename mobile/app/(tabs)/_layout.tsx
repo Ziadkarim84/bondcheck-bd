@@ -1,47 +1,34 @@
 import { Tabs } from 'expo-router';
-import { useAuthStore } from '../../store/authStore';
-import { strings } from '../../constants/strings';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useApp } from '../../src/store';
+import { strings } from '../../src/i18n';
+import { fonts, usePalette } from '../../src/theme';
 
-export default function TabLayout() {
-  const lang = useAuthStore((s) => s.language) ?? 'en';
-  const t = strings[lang] ?? strings.en;
+type Icon = keyof typeof Ionicons.glyphMap;
+const icon = (on: Icon, off: Icon) => ({ focused, color }: { focused: boolean; color: string }) => (
+  <Ionicons name={focused ? on : off} size={24} color={color} />
+);
 
+export default function TabsLayout() {
+  const p = usePalette();
+  const t = strings[useApp((s) => s.lang)];
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#0284c7',
-        tabBarInactiveTintColor: '#94a3b8',
-        tabBarStyle: { borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-        headerStyle: { backgroundColor: '#0284c7' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '700' },
+        headerShown: false,
+        tabBarActiveTintColor: p.accent,
+        tabBarInactiveTintColor: p.muted,
+        tabBarStyle: { backgroundColor: p.surface, borderTopColor: p.line, height: 64 + insets.bottom, paddingTop: 8, paddingBottom: insets.bottom + 8 },
+        tabBarLabelStyle: { fontFamily: fonts.bnSemi, fontSize: 12 },
+        sceneStyle: { backgroundColor: p.ground },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: t.home, tabBarLabel: t.home, tabBarIcon: ({ color }) => <TabIcon emoji="🏠" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="bonds"
-        options={{ title: t.myBonds, tabBarLabel: t.myBonds, tabBarIcon: ({ color }) => <TabIcon emoji="📋" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="scan"
-        options={{ title: t.scan, tabBarLabel: t.scan, tabBarIcon: ({ color }) => <TabIcon emoji="📷" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="results"
-        options={{ title: t.results, tabBarLabel: t.results, tabBarIcon: ({ color }) => <TabIcon emoji="📊" color={color} /> }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{ title: t.settings, tabBarLabel: t.settings, tabBarIcon: ({ color }) => <TabIcon emoji="⚙️" color={color} /> }}
-      />
+      <Tabs.Screen name="index" options={{ title: t.tabHome, tabBarIcon: icon('home', 'home-outline') }} />
+      <Tabs.Screen name="bonds" options={{ title: t.tabBonds, tabBarIcon: icon('wallet', 'wallet-outline') }} />
+      <Tabs.Screen name="results" options={{ title: t.tabResults, tabBarIcon: icon('trophy', 'trophy-outline') }} />
+      <Tabs.Screen name="settings" options={{ title: t.tabSettings, tabBarIcon: icon('settings', 'settings-outline') }} />
     </Tabs>
   );
-}
-
-function TabIcon({ emoji, color }: { emoji: string; color: string }) {
-  const { Text } = require('react-native');
-  return <Text style={{ fontSize: 20, opacity: color === '#0284c7' ? 1 : 0.5 }}>{emoji}</Text>;
 }

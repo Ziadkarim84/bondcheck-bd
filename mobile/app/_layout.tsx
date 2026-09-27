@@ -1,63 +1,69 @@
-import { useEffect, useState } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { AppState, useColorScheme } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
-import * as SecureStore from 'expo-secure-store';
-import { useAuthStore } from '../store/authStore';
-import { api } from '../services/api';
+import { useFonts } from 'expo-font';
+import { useApp } from '../src/store';
+import { fetchResults } from '../src/results';
+import { announce, ensureChannel, registerBackgroundCheck } from '../src/notify';
+import { initAds } from '../src/ads';
+import { initIap } from '../src/iap';
+import { usePalette } from '../src/theme';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
-async function registerForPushNotifications() {
-  try {
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') return;
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
-    await api.put('/notifications/token', { expoPushToken: token });
-  } catch {
-    // Non-critical
-  }
+async function refresh() {
+  const r = await fetchResults();
+  useApp.getState().setResults(r);
+  if (r) await announce(r, false);
 }
 
 export default function RootLayout() {
-  const { isReady, accessToken, hydrate } = useAuthStore();
   const router = useRouter();
-  const segments = useSegments();
+  const p = usePalette();
+  const scheme = useColorScheme();
+  const onboarded = useApp((s) => s.onboarded);
+  const [fontsLoaded] = useFonts({
+    'NotoSansBengali-Medium': require('../assets/fonts/NotoSansBengali-Medium.ttf'),
+    'NotoSansBengali-SemiBold': require('../assets/fonts/NotoSansBengali-SemiBold.ttf'),
+    'NotoSansBengali-Bold': require('../assets/fonts/NotoSansBengali-Bold.ttf'),
+    'Manrope-500': require('../assets/fonts/Manrope-500.ttf'),
+    'Manrope-700': require('../assets/fonts/Manrope-700.ttf'),
+    'Manrope-800': require('../assets/fonts/Manrope-800.ttf'),
+  });
+
   useEffect(() => {
-    hydrate();
+    if (!fontsLoaded) return;
+    SplashScreen.hideAsync().catch(() => {});
+    if (!onboarded) router.replace('/welcome');
+  }, [fontsLoaded, onboarded]);
+
+  useEffect(() => {
+    ensureChannel().catch(() => {});
+    refresh();
+    registerBackgroundCheck();
+    initAds();
+    initIap();
+    const sub = AppState.addEventListener('change', (s) => s === 'active' && refresh());
+    const tap = Notifications.addNotificationResponseReceivedListener((r) => {
+      if (r.notification.request.content.data?.screen === 'results') router.navigate('/results');
+      else router.navigate('/');
+    });
+    return () => { sub.remove(); tap.remove(); };
   }, []);
 
-  useEffect(() => {
-    if (!isReady) return;
-
-    SecureStore.getItemAsync('onboarding_done').then((v) => {
-      if (!v) {
-        router.replace('/onboarding');
-        return;
-      }
-      const inAuth = segments[0] === '(auth)';
-      if (!accessToken && !inAuth) router.replace('/(auth)/login');
-      if (accessToken && inAuth) router.replace('/(tabs)/');
-    });
-  }, [isReady, accessToken, segments]);
-
-  useEffect(() => {
-    if (accessToken) registerForPushNotifications();
-  }, [accessToken]);
-
+  if (!fontsLoaded) return null;
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="onboarding" />
-      <Stack.Screen name="(auth)/login" />
-      <Stack.Screen name="(auth)/register" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="premium" />
-      <Stack.Screen name="privacy" />
-    </Stack>
+    <>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: p.ground }, animation: 'slide_from_right' }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
+        <Stack.Screen name="add" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="pro" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      </Stack>
+    </>
   );
 }

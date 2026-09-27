@@ -1,0 +1,43 @@
+name: Publish draw results
+
+# Draws happen roughly quarterly (early Feb/May/Aug/Nov or the last day of the
+# month before). Check daily in those windows; the job exits quickly when
+# nothing new is published.
+on:
+  schedule:
+    - cron: '30 6,14 * 1,2,4,5,7,8,10,11 *'
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install pipeline
+        working-directory: pipeline
+        run: npm ci
+      - name: Fetch results from Bangladesh Bank and build the site
+        working-directory: pipeline
+        run: npm run publish-draw
+      - name: Detect a new draw
+        id: changed
+        run: |
+          if git diff --quiet -- site/public/data/results.json; then echo "new=false" >> "$GITHUB_OUTPUT"; else echo "new=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Commit site
+        if: steps.changed.outputs.new == 'true'
+        run: |
+          git config user.name "bondcheck-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add site/public
+          git commit -m "results: publish latest draw"
+          git push
+      - name: Deploy site to Railway
+        if: steps.changed.outputs.new == 'true'
+        working-directory: site
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx -y @railway/cli up --detach --service bondcheck-site

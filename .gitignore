@@ -8,3 +8,11 @@ dist/
 coverage/
 prisma/dev.db
 *.traineddata
+.vercel
+pdfs/
+mobile/android/
+mobile/ios/
+
+# Upload keystore (back up offline, never commit)
+signing/
+release/
