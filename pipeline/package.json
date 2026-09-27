@@ -1,0 +1,19 @@
+{
+  "name": "@bondcheck/pipeline",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fetch": "tsx src/fetch.ts",
+    "publish-draw": "tsx src/publish.ts",
+    "build-site": "tsx src/buildSite.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "pdf-parse": "^1.1.1",
+    "playwright-core": "^1.63.0"
+  }
+}

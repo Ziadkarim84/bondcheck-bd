@@ -5,11 +5,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0284c7"
+      "backgroundColor": "#0B2A1F"
     },
     "ios": {
       "supportsTablet": false,
@@ -18,46 +18,47 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0284c7"
+        "backgroundColor": "#0B8457"
       },
       "package": "com.bondcheckbd.app",
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
-      ]
+      "permissions": [],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ],
+      "versionCode": 2
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow BondCheck to access your camera to scan prize bonds."
-        }
-      ],
+      "expo-font",
+      "expo-background-task",
       [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#0284c7",
-          "androidMode": "default"
+          "color": "#0B8457"
         }
       ],
       [
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-1144671244479208~4979757958",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "userTrackingUsageDescription": "Ads help keep BondCheck BD free."
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning"
     ],
     "scheme": "bondcheck",
     "extra": {
-      "apiUrl": "https://bondcheck-bd-production.up.railway.app/v1",
       "eas": {
         "projectId": "8b9b9c47-7dde-4232-bc96-a8bd29678cc3"
       },
       "router": {}
     },
-    "owner": "ziadkarim84"
+    "owner": "ziadkarim84",
+    "experiments": {
+      "typedRoutes": false
+    }
   }
 }

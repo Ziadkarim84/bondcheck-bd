@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://bondcheck.hundredships.com/sitemap.xml
