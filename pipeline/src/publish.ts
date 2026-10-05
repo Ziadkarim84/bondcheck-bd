@@ -33,9 +33,14 @@ const last = new Date(draws[0].date + 'T00:00:00Z');
 const next = new Date(last);
 next.setUTCMonth(next.getUTCMonth() + 3);
 
+// Keep the previous timestamp when the draws haven't changed, so a run with no new
+// draw leaves the site byte-for-byte identical (the workflow treats any diff as new).
+const previous = existsSync('../site/public/data/results.json') ? JSON.parse(readFileSync('../site/public/data/results.json', 'utf8')) : null;
+const unchanged = previous && JSON.stringify(previous.draws) === JSON.stringify(draws);
+
 const data = {
   version: 1,
-  updatedAt: new Date().toISOString(),
+  updatedAt: unchanged ? previous.updatedAt : new Date().toISOString(),
   latestDraw: draws[0].draw,
   nextDrawExpected: next.toISOString().slice(0, 10),
   claimYears: 2,
